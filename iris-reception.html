@@ -1,0 +1,31 @@
+<link rel="import" href="../polymer/polymer.html">
+
+
+<dom-module id="iris-reception">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+    </style>
+    <iris-connection on-connection-restore="synchronize"></iris-connection>
+    <iris-workstation id="reporter"></iris-workstation>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'iris-reception',
+      properties: {
+
+      },
+      getTable(template) {
+        return this.$.reporter.getTable({
+          table: template
+        })
+      },
+      synchronizeData() {
+        console.log('Sync data here');
+      }
+    });
+  </script>
+</dom-module>
