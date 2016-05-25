@@ -8,8 +8,9 @@
         display: block;
       }
     </style>
-    <iris-connection on-connection-restore="synchronize"></iris-connection>
-    <iris-workstation id="reporter"></iris-workstation>
+    <iris-connection on-connection-restore="synchronizeData"></iris-connection>
+    <iris-workstation id="reception"></iris-workstation>
+    <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
   </template>
   <script>
@@ -18,14 +19,29 @@
       properties: {
 
       },
-      getTable(template) {
-        return this.$.reporter.getTable({
-          table: template
-        })
-      },
       synchronizeData() {
         let init_template = {};
         console.log('Sync data here');
+        setTimeout(() => {
+          this.$.reception.getServiceInfo().then(d => {
+            console.log(d);
+            console.log(this.services);
+
+            let map = [];
+            _.forEach(this.services, (service, key) => {
+              if (d[key + '--enum-service']) {
+                d[key + '--enum-service'].id = key;
+                map.push(d[key + '--enum-service']);
+              } else {
+                map.push({
+                  id: key
+                })
+              }
+            });
+            console.log(map);
+          })
+
+        }, 2000);
       }
     });
   </script>
