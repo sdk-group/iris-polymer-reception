@@ -1,47 +1,165 @@
 <link rel="import" href="../polymer/polymer.html">
 
+<link rel="import" href="cell-models.html">
+
 
 <dom-module id="iris-reception">
   <template>
     <style>
       :host {
         display: block;
+        height: 100%;
+        overflow-y: hidden;
+        --iris-table-first-cal: {
+          white-space: normal;
+          max-width: 250px;
+        }
+        ;
+      }
+
+      iris-table {
+        overflow-y: scroll;
+        height: 100%;
       }
     </style>
-    <iris-connection on-connection-restore="synchronizeData"></iris-connection>
+    <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
+    <iris-connection on-connection-restore="connetcionRestored"></iris-connection>
     <iris-workstation id="reception"></iris-workstation>
+
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
+    <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
+    <iris-table id="service-table" fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
 
   </template>
   <script>
     Polymer({
       is: 'iris-reception',
       properties: {
+        searchString: {
+          value: '',
+          type: String,
+          observer: '_searchStringChanged'
+        },
+        mask: {
+          value: '',
+          type: String
+        }
+      },
+      observers: ['_permissionsChanged(permissions.can-manage)'],
+      _permissionsChanged(permissions) {
+        this.synchronizeData();
+      },
+      _searchStringChanged() {
+        if (this.searchString == '') {
+          this.set('mask', this.searchString);
+          return
+        }
+        this.debounce('set-mask', () => this.set('mask', this.searchString), 500)
+      },
+      filter(data, mask) {
+        if (!mask) {
+          return data;
+        }
+        return _.filter(data, (item) => ~item.id.toLowerCase().indexOf(mask.toLowerCase()))
+      },
+      ready() {
+        this.fieldsModel = [{
+          field: 'id',
+          label: 'ID'
+        }, {
+          fields: {
+            first: 'issued-tickets',
+            second: 'issued-tickets-services'
+          },
+          template: 'slashed',
+          label: 'Выдано'
+        }, {
+          fields: {
+            first: 'in-room',
+            second: 'in-room-services'
+          },
+          template: 'slashed',
+          label: 'В зале'
+        }, {
+          fields: {
+            first: 'waiting',
+            second: 'waiting-services'
+          },
+          template: 'slashed',
+          label: 'Ожидают'
+        }, {
+          fields: {
+            first: 'processing',
+            second: 'processing-services'
+          },
+          template: 'slashed',
+          label: 'Обслуживаются'
+        }, {
+          fields: {
+            first: 'postponed',
+            second: 'postponed-services'
+          },
+          template: 'slashed',
+          label: 'Отложено'
+        }, {
+          fields: {
+            first: 'processed',
+            second: 'processed-services'
+          },
+          template: 'slashed',
+          label: 'Обслужено'
+        }, {
+          fields: {
+            first: 'total-live',
+            second: 'total-prebook'
+          },
+          template: 'slashed',
+          label: 'Всего'
+        }];
+      },
+      hasPermissions() {
+        let permission = this.permissions['can-manage'];
+        return _.reduce(permission, (a, item) => a || item, false);
+      },
+      getDepartments() {
+        let permission = this.permissions['can-manage'];
 
+        return _.reduce(permission, (accum, item, key) => {
+          if (item) accum.push(key);
+          return accum;
+        }, [])
+      },
+      connetcionRestored() {
+        if (this.logged && this.hasPermissions()) this.synchronizeData();
       },
       synchronizeData() {
+        if (!this.hasPermissions()) return;
         let init_template = {};
         console.log('Sync data here');
-        setTimeout(() => {
-          this.$.reception.getServiceInfo().then(d => {
-            console.log(d);
-            console.log(this.services);
-
+        let poll = () => {
+          this.$.reception.getServiceInfo({
+            department: this.getDepartments()
+          }).then(d => {
             let map = [];
             _.forEach(this.services, (service, key) => {
               if (d[key + '--enum-service']) {
-                d[key + '--enum-service'].id = key;
+                d[key + '--enum-service'].id = this.services[key].label;
                 map.push(d[key + '--enum-service']);
               } else {
                 map.push({
-                  id: key
+                  id: this.services[key].label
                 })
               }
             });
-            console.log(map);
-          })
-
-        }, 2000);
+            // console.log(map);
+            map = _.sortBy(map, 'id');
+            this.set('data', map)
+          });
+          //@NOTE: rewrite this shitcode
+          //@NOTE: no timer-polls please
+          this.logged && setTimeout(poll, 20000);
+        };
+        poll();
       }
     });
   </script>
