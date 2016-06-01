@@ -2,8 +2,7 @@
 
 <dom-module id="slashed-cell">
   <template>
-    [[first]] / [[second]]
-
+    [[celltext]]
   </template>
   <script>
     Polymer({
@@ -18,15 +17,16 @@
           observer: "_valueChanged"
         }
       },
-
       _valueChanged() {
-        this.first = this.value.first || 0;
-        this.second = this.value.second || 0;
+        let first = this.value.first || 0;
+        let second = this.value.second || 0;
+        this.celltext = first == second ? first : `${first} / ${second}`;
       }
 
     });
   </script>
 </dom-module>
+
 <etable-cell-register name="slashed">
   <template id="display">
     <slashed-cell value="[[value]]"></slashed-cell>

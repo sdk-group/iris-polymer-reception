@@ -7,7 +7,7 @@
   <template>
     <style>
       :host {
-        display: block;
+        @apply(--layout-vertical);
         height: 100%;
         overflow-y: hidden;
         --iris-table-first-cal: {
@@ -28,7 +28,7 @@
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
-    <iris-table id="service-table" fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
+    <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
 
   </template>
   <script>
