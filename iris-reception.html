@@ -28,8 +28,11 @@
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
-    <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
+    <div id="table-wrap">
 
+      <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
+
+    </div>
   </template>
   <script>
     Polymer({
@@ -66,6 +69,13 @@
         this.fieldsModel = [{
           field: 'id',
           label: 'Название'
+        }, {
+          fields: {
+            first: 'live-slots',
+            second: 'prebook-slots'
+          },
+          template: 'slashed',
+          label: 'Доступно'
         }, {
           fields: {
             first: 'issued-tickets',
@@ -137,17 +147,31 @@
         let init_template = {};
         console.log('Sync data here');
         let poll = () => {
-          this.$.reception.getServiceInfo({
-            department: this.getDepartments()
-          }).then(d => {
+          Promise.props({
+            slots: this.$.reception.getAvailableSlots(),
+            tickets: this.$.reception.getServiceInfo({
+              department: this.getDepartments()
+            })
+          }).then(({
+            slots,
+            tickets
+          }) => {
             let map = [];
+            let now = moment().format('YYYY-MM-DD');
+
             _.forEach(this.services, (service, key) => {
-              if (d[key + '--enum-service']) {
-                d[key + '--enum-service'].id = this.services[key].label;
-                map.push(d[key + '--enum-service']);
+              let slot = _.get(slots, [key, now, 'available_slots']) || {};
+
+              if (tickets[key + '--enum-service']) {
+                tickets[key + '--enum-service'].id = this.services[key].label;
+                tickets[key + '--enum-service']['live-slots'] = slot.live;
+                tickets[key + '--enum-service']['prebook-slots'] = slot.prebook;
+                map.push(tickets[key + '--enum-service']);
               } else {
                 map.push({
-                  id: this.services[key].label
+                  'live-slots': slot.live,
+                  'prebook-slots': slot.prebook,
+                  'id': this.services[key].label
                 })
               }
             });
