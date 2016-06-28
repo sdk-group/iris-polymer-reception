@@ -28,11 +28,15 @@
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
-    <div id="table-wrap">
 
+    <div id="service-wrap">
       <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
-
     </div>
+
+    <div>
+      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]"></iris-table>
+    </div>
+
   </template>
   <script>
     Polymer({
@@ -66,6 +70,8 @@
         return _.filter(data, (item) => ~item.id.toLowerCase().indexOf(mask.toLowerCase()))
       },
       ready() {
+        this.workstationFieldsModel = [];
+
         this.fieldsModel = [{
           field: 'id',
           label: 'Название'
