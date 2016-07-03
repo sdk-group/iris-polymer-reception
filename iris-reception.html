@@ -7,8 +7,6 @@
   <template>
     <style>
       :host {
-        @apply(--layout-vertical);
-        height: 100%;
         overflow-y: hidden;
         --iris-table-first-cal: {
           white-space: normal;
@@ -17,9 +15,9 @@
         ;
       }
       
-      iris-table {
-        overflow-y: scroll;
-        height: 100%;
+      #service-wrap,
+      #service-table {
+        max-height: 500px;
       }
     </style>
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
@@ -153,40 +151,31 @@
         let init_template = {};
         console.log('Sync data here');
         let poll = () => {
-          Promise.props({
-            slots: this.$.reception.getAvailableSlots(),
-            tickets: this.$.reception.getServiceInfo({
-              department: this.getDepartments()
-            })
-          }).then(({
-            slots,
-            tickets
-          }) => {
-            let map = [];
-            let now = moment().format('YYYY-MM-DD');
-
-            _.forEach(this.services, (service, key) => {
-              let slot = _.get(slots, [key, now, 'available_slots']) || {};
-
+          this.$.reception.getServiceInfo({
+            department: this.getDepartments()
+          }).then((tickets) => {
+            let map = _.transform(this.services, (acc, service, key) => {
               if (tickets[key + '--enum-service']) {
                 tickets[key + '--enum-service'].id = this.services[key].label;
-                tickets[key + '--enum-service']['live-slots'] = slot.live;
-                tickets[key + '--enum-service']['prebook-slots'] = slot.prebook;
-                map.push(tickets[key + '--enum-service']);
+                acc.push(tickets[key + '--enum-service']);
               } else {
-                map.push({
-                  'live-slots': slot.live,
-                  'prebook-slots': slot.prebook,
+                acc.push({
                   'id': this.services[key].label
                 })
               }
-            });
-            // console.log(map);
+            }, []);
+
             map = _.sortBy(map, 'id');
             this.set('data', map)
           });
-          //@NOTE: rewrite this shitcode
-          //@NOTE: no timer-polls please
+
+          this.$.reception.getWorkstationInfo({
+              department: this.getDepartments()
+            }).then((d) => {
+              console.log(d);
+            })
+            //@NOTE: rewrite this shitcode
+            //@NOTE: no timer-polls please
           this.logged && setTimeout(poll, 20000);
         };
         poll();
