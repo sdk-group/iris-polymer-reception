@@ -14,7 +14,7 @@
         }
         ;
       }
-      
+
       #service-wrap,
       #service-table {
         max-height: 500px;
@@ -169,13 +169,13 @@
             this.set('data', map)
           });
 
-          this.$.reception.getWorkstationInfo({
-              department: this.getDepartments()
-            }).then((d) => {
-              console.log(d);
-            })
-            //@NOTE: rewrite this shitcode
-            //@NOTE: no timer-polls please
+          // this.$.reception.getWorkstationInfo({
+          //     department: this.getDepartments()
+          //   }).then((d) => {
+          //     console.log(d);
+          //   })
+          //@NOTE: rewrite this shitcode
+          //@NOTE: no timer-polls please
           this.logged && setTimeout(poll, 20000);
         };
         poll();
