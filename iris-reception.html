@@ -40,7 +40,7 @@
     <h3>Окна</h3>
     <paper-input label="Введите название услуги" value="{{workstationString}}"></paper-input>
     <div class="table-wrap">
-      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filterWS(workstationsData,wsMask)]]"></iris-table>
+      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filterWS(workstationsData,wsMask)]]" has-summary></iris-table>
     </div>
 
   </template>
@@ -87,11 +87,9 @@
         return _.filter(data, (item) => ~item.id.toLowerCase().indexOf(mask.toLowerCase()))
       },
       filterWS(data, mask) {
-        console.log(mask);
         if (!mask) return data;
 
-
-        return _.filter(data, (item) => {
+        let fields = _.filter(data, (item) => {
           let provides = item.provides;
           let service = _.find(provides, (service_id) => {
             let s = this.services[service_id];
@@ -99,7 +97,10 @@
           })
 
           return !!service;
-        })
+        });
+
+
+        return fields;
       },
       ready() {
         this.wsMask = '';
@@ -164,28 +165,38 @@
           label: 'Всего'
         }];
 
+        let summ = function(acc, v) {
+          v && acc++;
+          return acc;
+        };
         this.workstationFieldsModel = [{
           field: 'label',
-          label: 'Название'
+          label: 'Название',
+          reducer: ''
         }, {
           field: 'service',
-          label: 'Услуга'
+          label: 'Услуга',
+          reducer: '-'
         }, {
           field: 'available',
           template: 'marked',
-          label: 'Доступно'
+          label: 'Доступно',
+          reducer: summ
         }, {
           field: 'paused',
           template: 'marked',
-          label: 'Перерыв'
+          label: 'Перерыв',
+          reducer: summ
         }, {
           field: 'active',
           template: 'marked',
-          label: 'Включено'
+          label: 'Включено',
+          reducer: summ
         }, {
           field: 'inactive',
           template: 'marked',
-          label: 'Выключено'
+          label: 'Выключено',
+          reducer: summ
         }];
       },
       hasPermissions() {
@@ -256,4 +267,3 @@
     });
   </script>
 </dom-module>
-e>
