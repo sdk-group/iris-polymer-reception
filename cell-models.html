@@ -1,34 +1,15 @@
+<link rel="import" href="slashed-cell.html">
 <link rel="import" href="../iris-polymer-table/etable-cell-register.html">
-
-<dom-module id="slashed-cell">
-  <template>
-    [[celltext]]
-  </template>
-  <script>
-    Polymer({
-      is: 'slashed-cell',
-      properties: {
-        value: {
-          type: Object,
-          value: {
-            first: 0,
-            second: 0
-          },
-          observer: "_valueChanged"
-        }
-      },
-      _valueChanged() {
-        let first = this.value.first || 0;
-        let second = this.value.second || 0;
-        this.celltext = first == second ? first : `${first} / ${second}`;
-      }
-
-    });
-  </script>
-</dom-module>
 
 <etable-cell-register name="slashed">
   <template id="display">
     <slashed-cell value="[[value]]"></slashed-cell>
+  </template>
+</etable-cell-register>
+
+<etable-cell-register name="marked">
+  <template id="display">
+    <iron-icon style="position: inherit;" hidden$="[[!value]]" icon="check"></iron-icon>
+    <iron-icon style="position: inherit;" hidden$="[[value]]" icon="remove"></iron-icon>
   </template>
 </etable-cell-register>

@@ -1,0 +1,27 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="slashed-cell">
+  <template>
+    [[celltext]]
+  </template>
+  <script>
+    Polymer({
+      is: 'slashed-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {
+            first: 0,
+            second: 0
+          },
+          observer: "_valueChanged"
+        }
+      },
+      _valueChanged() {
+        let first = this.value.first || 0;
+        let second = this.value.second || 0;
+        this.celltext = first == second ? first : `${first} / ${second}`;
+      }
+    });
+  </script>
+</dom-module>

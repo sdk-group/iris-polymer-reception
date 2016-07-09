@@ -15,9 +15,14 @@
         ;
       }
 
-      #service-wrap,
-      #service-table {
+      .table-wrap,
+      #service-table,
+      #workstation-table {
         max-height: 500px;
+      }
+
+      iron-icon {
+        position: inherit;
       }
     </style>
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
@@ -25,14 +30,17 @@
     <iris-workstation id="reception"></iris-workstation>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
-    <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
 
-    <div id="service-wrap">
+    <h3>Посетители и талоны</h3>
+    <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
+    <div class="table-wrap">
       <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
     </div>
 
-    <div>
-      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]"></iris-table>
+    <h3>Окна</h3>
+    <paper-input label="Введите название услуги" value="{{workstationString}}"></paper-input>
+    <div class="table-wrap">
+      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filterWS(workstationsData,wsMask)]]"></iris-table>
     </div>
 
   </template>
@@ -44,6 +52,11 @@
           value: '',
           type: String,
           observer: '_searchStringChanged'
+        },
+        workstationString: {
+          value: '',
+          type: String,
+          observer: '_workstationStringChanged'
         },
         mask: {
           value: '',
@@ -61,15 +74,35 @@
         }
         this.debounce('set-mask', () => this.set('mask', this.searchString), 500)
       },
-      filter(data, mask) {
-        if (!mask) {
-          return data;
+      _workstationStringChanged(string) {
+        if (string == '') {
+          this.set('wsMask', string);
+          return
         }
+        this.debounce('set-ws-mask', () => this.set('wsMask', string.toLowerCase()), 500)
+      },
+      filter(data, mask) {
+        if (!mask) return data;
+
         return _.filter(data, (item) => ~item.id.toLowerCase().indexOf(mask.toLowerCase()))
       },
-      ready() {
-        this.workstationFieldsModel = [];
+      filterWS(data, mask) {
+        console.log(mask);
+        if (!mask) return data;
 
+
+        return _.filter(data, (item) => {
+          let provides = item.provides;
+          let service = _.find(provides, (service_id) => {
+            let s = this.services[service_id];
+            return ~s.label.toLowerCase().indexOf(mask);
+          })
+
+          return !!service;
+        })
+      },
+      ready() {
+        this.wsMask = '';
         this.fieldsModel = [{
           field: 'id',
           label: 'Название'
@@ -130,6 +163,30 @@
           template: 'slashed',
           label: 'Всего'
         }];
+
+        this.workstationFieldsModel = [{
+          field: 'label',
+          label: 'Название'
+        }, {
+          field: 'service',
+          label: 'Услуга'
+        }, {
+          field: 'available',
+          template: 'marked',
+          label: 'Доступно'
+        }, {
+          field: 'paused',
+          template: 'marked',
+          label: 'Перерыв'
+        }, {
+          field: 'active',
+          template: 'marked',
+          label: 'Включено'
+        }, {
+          field: 'inactive',
+          template: 'marked',
+          label: 'Выключено'
+        }];
       },
       hasPermissions() {
         let permission = this.permissions['can-manage'];
@@ -149,7 +206,7 @@
       synchronizeData() {
         if (!this.hasPermissions()) return;
         let init_template = {};
-        console.log('Sync data here');
+
         let poll = () => {
           this.$.reception.getServiceInfo({
             department: this.getDepartments()
@@ -169,11 +226,27 @@
             this.set('data', map)
           });
 
-          // this.$.reception.getWorkstationInfo({
-          //     department: this.getDepartments()
-          //   }).then((d) => {
-          //     console.log(d);
-          //   })
+          this.$.reception.getWorkstationInfo({
+            department: this.getDepartments()
+          }).then((data) => {
+
+            let fields = _.chain(data)
+              .sortBy('label')
+              .map((item) => {
+
+                item.available = item.state == 'active';
+                item.paused = item.state == 'paused';
+                item.active = item.state == 'active' || item.state == 'paused';
+                item.inactive = item.state == 'inactive';
+                item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
+
+                return item;
+              })
+              .value();
+
+            this.set('workstationsData', fields);
+          });
+
           //@NOTE: rewrite this shitcode
           //@NOTE: no timer-polls please
           this.logged && setTimeout(poll, 20000);
@@ -183,3 +256,4 @@
     });
   </script>
 </dom-module>
+e>
