@@ -1,6 +1,7 @@
 <link rel="import" href="../polymer/polymer.html">
 
 <link rel="import" href="cell-models.html">
+<link rel="import" href="reception-dialog.html">
 
 
 <dom-module id="iris-reception">
@@ -11,6 +12,10 @@
         --iris-table-first-cal: {
           white-space: normal;
           max-width: 250px;
+        }
+        ;
+        --iris-table-cell: {
+          cursor: pointer;
         }
         ;
       }
@@ -31,10 +36,12 @@
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
+    <reception-dialog id="dialog" data="[[cellInfo]]"></reception-dialog>
+
     <h3>Посетители и талоны</h3>
     <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
     <div class="table-wrap">
-      <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]"></iris-table>
+      <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]" on-cell-tap="cellTap" on-summary-tap="cellTap" has-summary></iris-table>
     </div>
 
     <h3>Окна</h3>
@@ -81,10 +88,29 @@
         }
         this.debounce('set-ws-mask', () => this.set('wsMask', string.toLowerCase()), 500)
       },
+      cellTap(e) {
+        let detail = e.detail;
+        if (detail.col < 2) return false;
+
+        let fields = detail.model.fields;
+        let row = detail.row;
+        let service = row ? _.get(this.$['service-table'], ['data', row, 'id']) : undefined;
+        let names = _.values(fields);
+        this.$.reception.getServiceDetails({
+          param_names: names,
+          service: service,
+          department: this.getDepartments()
+        }).then((response) => {
+          let service_label = service ? _.get(this.services, [service, 'label']) : false;
+          _.forEach(response, item => item.service = service_label ? service_label : _.get(this.services, [item.service, 'label']));
+          this.set('cellInfo', response);
+          this.$.dialog.open();
+        });
+      },
       filter(data, mask) {
         if (!mask) return data;
 
-        return _.filter(data, (item) => ~item.id.toLowerCase().indexOf(mask.toLowerCase()))
+        return _.filter(data, (item) => ~item.label.toLowerCase().indexOf(mask.toLowerCase()))
       },
       filterWS(data, mask) {
         if (!mask) return data;
@@ -94,25 +120,32 @@
           let service = _.find(provides, (service_id) => {
             let s = this.services[service_id];
             return ~s.label.toLowerCase().indexOf(mask);
-          })
-
+          });
           return !!service;
         });
-
 
         return fields;
       },
       ready() {
         this.wsMask = '';
+        let slashed_sum = function(acc, v) {
+          if (_.get(v, 'first')) acc.first = !!acc.first ? acc.first + v.first : v.first;
+          if (_.get(v, 'second')) acc.second = !!acc.second ? acc.second + v.second : v.second;
+          return acc;
+        };
         this.fieldsModel = [{
-          field: 'id',
-          label: 'Название'
+          field: 'label',
+          label: 'Название',
+          reducer: ''
         }, {
           fields: {
             first: 'live-slots',
             second: 'prebook-slots'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Доступно'
         }, {
           fields: {
@@ -120,6 +153,9 @@
             second: 'issued-tickets-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Выдано'
         }, {
           fields: {
@@ -127,6 +163,9 @@
             second: 'in-room-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'В зале'
         }, {
           fields: {
@@ -134,6 +173,9 @@
             second: 'waiting-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Ожидают'
         }, {
           fields: {
@@ -141,6 +183,9 @@
             second: 'processing-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Обслуживаются'
         }, {
           fields: {
@@ -148,6 +193,9 @@
             second: 'postponed-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Отложено'
         }, {
           fields: {
@@ -155,6 +203,9 @@
             second: 'processed-services'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Обслужено'
         }, {
           fields: {
@@ -162,6 +213,9 @@
             second: 'total-prebook'
           },
           template: 'slashed',
+          summary: 'slashed',
+          reducer: slashed_sum,
+          initial: {},
           label: 'Всего'
         }];
 
@@ -223,17 +277,14 @@
             department: this.getDepartments()
           }).then((tickets) => {
             let map = _.transform(this.services, (acc, service, key) => {
-              if (tickets[key + '--enum-service']) {
-                tickets[key + '--enum-service'].id = this.services[key].label;
-                acc.push(tickets[key + '--enum-service']);
-              } else {
-                acc.push({
-                  'id': this.services[key].label
-                })
-              }
+              let row = tickets[key + '--enum-service'] || {};
+              row.label = this.services[key].label;
+              row.id = key;
+
+              acc.push(row);
             }, []);
 
-            map = _.sortBy(map, 'id');
+            map = _.sortBy(map, 'label');
             this.set('data', map)
           });
 

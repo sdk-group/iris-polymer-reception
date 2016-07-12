@@ -1,0 +1,73 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="reception-dialog">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      #dialog {
+        @apply(--layout-vertical);
+        width: 100%;
+        top: 64px;
+        bottom: 0;
+        margin: 0;
+        border-top: 3px solid #E44E34;
+      }
+
+      .dialog-head {
+        font-size: 19px;
+        padding-left: 15px;
+        margin: 10px 0;
+        min-height: 40px;
+        @apply(--layout-horizontal);
+        @apply(--layout-justified);
+      }
+
+      paper-fab {
+        border-radius: 3px;
+        background-color: rgba(0, 0, 0, 0.0);
+        border: 3px solid #6E4D44;
+        color: #6E4D44;
+      }
+    </style>
+
+    <paper-dialog id="dialog" entry-animation="slide-from-left-animation" exit-animation="slide-left-animation">
+      <div class='dialog-head'>
+        <paper-fab class="flat" mini icon="chevron-left" elevation="0" on-tap="closeList"></paper-fab>
+      </div>
+      <iris-table fields-model="[[fieldsModel]]" data="[[data]]"></iris-table>
+    </paper-dialog>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'reception-dialog',
+      properties: {
+        data: {
+          type: Array,
+          value: []
+        }
+      },
+      ready() {
+        this.fieldsModel = [{
+          field: 'label',
+          label: 'Номер'
+        }, {
+          field: 'service',
+          label: 'Услуга'
+        }, {
+          field: 'user_info.fio',
+          label: 'ФИО'
+        }]
+      },
+      open() {
+        this.$.dialog.open();
+      },
+      closeList() {
+        this.$.dialog.close();
+      }
+    });
+  </script>
+</dom-module>

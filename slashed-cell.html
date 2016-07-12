@@ -17,6 +17,7 @@
           observer: "_valueChanged"
         }
       },
+      observers: ["_valueChanged(value.*)"],
       _valueChanged() {
         let first = this.value.first || 0;
         let second = this.value.second || 0;
