@@ -133,6 +133,13 @@
           if (_.get(v, 'second')) acc.second = !!acc.second ? acc.second + v.second : v.second;
           return acc;
         };
+        let slashed_max = function(acc, v) {
+          return {
+            first: _.max([acc.first, _.get(v, 'first')]),
+            second: _.max([acc.second, _.get(v, 'second')])
+          };
+        };
+
         this.fieldsModel = [{
           field: 'label',
           label: 'Название',
@@ -144,7 +151,7 @@
           },
           template: 'slashed',
           summary: 'slashed',
-          reducer: slashed_sum,
+          reducer: slashed_max,
           initial: {},
           label: 'Доступно'
         }, {
