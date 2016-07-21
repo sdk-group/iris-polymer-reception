@@ -94,7 +94,7 @@
 
         let fields = detail.model.fields;
         let row = detail.row;
-        let service = row ? _.get(this.$['service-table'], ['data', row, 'id']) : undefined;
+        let service = _.isNumber(row) ? _.get(this.$['service-table'], ['data', row, 'id']) : undefined;
         let names = _.values(fields);
         this.$.reception.getServiceDetails({
           param_names: names,
