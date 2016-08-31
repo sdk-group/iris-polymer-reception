@@ -32,7 +32,7 @@
     </style>
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
     <iris-connection on-connection-restore="connetcionRestored"></iris-connection>
-    <iris-workstation id="reception"></iris-workstation>
+    <iris-reception-api id="reception" workstation-type="reception"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
@@ -47,7 +47,7 @@
     <h3>Окна</h3>
     <paper-input label="Введите название услуги" value="{{workstationString}}"></paper-input>
     <div class="table-wrap">
-      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filterWS(workstationsData,wsMask)]]" has-summary></iris-table>
+      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filter(workstationsData,wsMask)]]"></iris-table>
     </div>
 
   </template>
@@ -226,38 +226,27 @@
           label: 'Всего'
         }];
 
-        let summ = function(acc, v) {
-          v && acc++;
-          return acc;
+        let max = function(acc, v) {
+          return acc < v ? v : acc;
         };
         this.workstationFieldsModel = [{
           field: 'label',
-          label: 'Название',
-          reducer: ''
-        }, {
-          field: 'service',
-          label: 'Услуга',
-          reducer: '-'
+          label: 'Название'
         }, {
           field: 'available',
-          template: 'marked',
-          label: 'Доступно',
-          reducer: summ
+          label: 'Доступно'
         }, {
           field: 'paused',
-          template: 'marked',
-          label: 'Перерыв',
-          reducer: summ
+          label: 'Перерыв'
         }, {
           field: 'active',
-          template: 'marked',
-          label: 'Включено',
-          reducer: summ
+          label: 'Включено'
         }, {
           field: 'inactive',
-          template: 'marked',
-          label: 'Выключено',
-          reducer: summ
+          label: 'Выключено'
+        }, {
+          field: 'total',
+          label: 'Всего'
         }];
       },
       hasPermissions() {
@@ -277,50 +266,71 @@
       },
       synchronizeData() {
         if (!this.hasPermissions()) return;
-        let init_template = {};
 
         let poll = () => {
-          this.$.reception.getServiceInfo({
-            department: this.getDepartments()
-          }).then((tickets) => {
-            let map = _.transform(this.services, (acc, service, key) => {
-              let row = tickets[key + '--enum-service'] || {};
-              row.label = this.services[key].label;
-              row.id = key;
-
-              acc.push(row);
-            }, []);
-
-            map = _.sortBy(map, 'label');
-            this.set('data', map)
-          });
-
-          this.$.reception.getWorkstationInfo({
-            department: this.getDepartments()
-          }).then((data) => {
-
-            let fields = _.chain(data)
-              .sortBy('label')
-              .map((item) => {
-
-                item.available = item.state == 'active';
-                item.paused = item.state == 'paused';
-                item.active = item.state == 'active' || item.state == 'paused';
-                item.inactive = item.state == 'inactive';
-                item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
-
-                return item;
-              })
-              .value();
-
-            this.set('workstationsData', fields);
-          });
+          this.checkServices();
+          this.checkWorkstations();
 
           //@NOTE: rewrite this shitcode
           //@NOTE: no timer-polls please
           this.logged && setTimeout(poll, 20000);
         };
         poll();
+      },
+      checkServices() {
+        this.$.reception.getServiceInfo({
+          department: this.getDepartments()
+        }).then((tickets) => {
+          let map = _.transform(this.services, (acc, service, key) => {
+            let row = tickets[key + '--enum-service'] || {};
+            row.label = this.services[key].label;
+            row.id = key;
+
+            acc.push(row);
+          }, []);
+
+          map = _.sortBy(map, 'label');
+          this.set('data', map)
+        });
+
+      },
+      checkWorkstations() {
+        this.$.reception.getWorkstationInfo({
+          department: this.getDepartments()
+        }).then((data) => {
+          console.log(data);
+          let fields = _.chain(data)
+            .sortBy('label')
+            .map((item) => {
+
+              item.available = item.state == 'active';
+              item.paused = item.state == 'paused';
+              item.active = item.state == 'active' || item.state == 'paused';
+              item.inactive = item.state == 'inactive';
+              // item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
+
+              return item;
+            })
+            .value();
+
+          let services = _.map(this.services, (service, id) => {
+            let ws = _.filter(fields, field => field.provides && ~field.provides.indexOf(id));
+            let result = {
+              available: 0,
+              paused: 0,
+              active: 0,
+              inactive: 0
+            };
+
+            result = _.mapValues(result, (item, name) => _.filter(ws, [name, true]).length);
+            result.label = service.label;
+            result.total = result.available + result.inactive;
+
+            return result;
+          });
+
+          this.set('workstationsData', services);
+        });
       }
     });
   </script>
