@@ -1,8 +1,8 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
 
 <link rel="import" href="cell-models.html">
 <link rel="import" href="reception-dialog.html">
-
 
 <dom-module id="iris-reception">
   <template>
@@ -12,53 +12,167 @@
         --iris-table-first-cal: {
           white-space: normal;
           max-width: 250px;
-        }
-        ;
+        };
         --iris-table-cell: {
           cursor: pointer;
-        }
-        ;
+        };
+        --paper-tabs: {
+          background-color: var(--mydoc-brown-800);
+          font-size: 18px;
+        };
+        --paper-tabs-selection-bar: {
+          height: 4px;
+        };
+        --paper-tabs-selection-bar-color: var(--mydoc-beige-600);
+        --iris-ticketview-card: {
+          background: transparent;
+          border: none;
+        };
+        --paper-spinner-layer-1-color: var(--mydoc-red-1000);
+        --paper-spinner-layer-2-color: var(--mydoc-red-800);
+        --paper-spinner-layer-3-color: var(--mydoc-brown-1000);
+        --paper-spinner-layer-4-color: var(--mydoc-beige-1000);
       }
 
-      .table-wrap,
       #service-table,
-      #workstation-table {
+      #workstation-table,
+      .table-wrap {
         max-height: 500px;
       }
 
       iron-icon {
         position: inherit;
       }
+
+      #ticket-search {
+        @apply(--layout-horizontal);
+        @apply(--layout-end);
+      }
+
+      #query {
+        @apply(--layout-flex-auto);
+        padding-right: 5px;
+      }
+
+      .ticket-action {
+        padding: 0 10px 10px;
+        @apply(--layout-vertical);
+      }
+
+      .ticket-action paper-button {
+        margin-top: 10px;
+        font-size: 20px;
+      }
+
+      iris-ticketview {
+        padding-top: 25px;
+      }
+
+      paper-spinner {
+        height: 20px;
+        width: 20px;
+        top: 2px;
+      }
+
     </style>
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
     <iris-connection on-connection-restore="connetcionRestored"></iris-connection>
-    <iris-reception-api id="reception" workstation-type="reception"></iris-reception-api>
+    <iris-reception-api id="workstation" workstation-type="reception"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
+    <iris-routing-dialog id="routing"></iris-routing-dialog>
+
     <reception-dialog id="dialog" data="[[cellInfo]]"></reception-dialog>
 
-    <h3>Посетители и талоны</h3>
-    <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
-    <div class="table-wrap">
-      <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]" on-cell-tap="cellTap" on-summary-tap="cellTap" has-summary></iris-table>
-    </div>
+    <paper-tabs selected="{{selected}}">
+      <paper-tab>Посетители и талоны</paper-tab>
+      <paper-tab>Окна</paper-tab>
+      <paper-tab>Талоны</paper-tab>
+    </paper-tabs>
 
-    <h3>Окна</h3>
-    <paper-input label="Введите название услуги" value="{{workstationString}}"></paper-input>
-    <div class="table-wrap">
-      <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filter(workstationsData,wsMask)]]"></iris-table>
-    </div>
+    <iron-pages selected="{{selected}}">
+      <div>
+        <paper-input label="Введите название услуги" value="{{searchString}}"></paper-input>
+        <iris-table id="service-table" fixed-header fields-model="[[fieldsModel]]" data="[[filter(data,mask)]]" on-cell-tap="cellTap" on-summary-tap="cellTap" has-summary></iris-table>
+      </div>
+
+      <div>
+        <paper-input label="Введите название услуги" value="{{workstationString}}"></paper-input>
+        <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filter(workstationsData,wsMask)]]"></iris-table>
+      </div>
+
+      <div id="ticket-manager-wrapper" on-ticket-action="ticketAction">
+        <div id="ticket-search">
+          <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
+          <paper-dropdown-menu label="Поле">
+            <paper-listbox class="dropdown-content" attr-for-selected="field-name" selected="{{queryField}}">
+              <template is="dom-repeat" items="[[fields]]">
+                <paper-item field-name$="[[item.value]]">
+                  [[item.name]]
+                </paper-item>
+              </template>
+            </paper-listbox>
+          </paper-dropdown-menu>
+          <paper-icon-button icon="autorenew" on-tap="_queryStringChanged"></paper-icon-button>
+        </div>
+        <iris-table id="ticket-table" fixed-header fields-model="[[ticketFieldsModel]]" data="[[tickets]]" on-cell-tap="searchTap"></iris-table>
+
+        <iris-ticketview id="viewer" hidden$="[[hasTicket(selectedTicket)]]" ticket="{{selectedTicket}}" view="detail">
+          <div class="ticket-action ">
+            <paper-button ticket-action="postpone" class="btn-primary" raised elevation="0" tabindex="-1">
+              Отложить
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+            <paper-button ticket-action="route" class="btn-primary" raised elevation="0" tabindex="-1">
+              Передать
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+            <paper-button ticket-action="restore" class="btn-primary" raised elevation="0" tabindex="-1">
+              Вернуть
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+            <paper-button ticket-action="close" class="btn-primary" raised elevation="0" tabindex="-1">
+              Закрыть
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+            <paper-button ticket-action="priority-up" class="btn-primary" raised elevation="0" tabindex="-1">
+              Повысить приоритет
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+            <paper-button ticket-action="priority-down" class="btn-primary" raised elevation="0" tabindex="-1">
+              Снизить приоритет
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
+          </div>
+        </iris-ticketview>
+      </div>
+    </iron-pages>
 
   </template>
   <script>
     Polymer({
       is: 'iris-reception',
+      behaviors: [window.IrisBehaviors.ActionButtonsBehvior],
       properties: {
+        selected: {
+          type: Number,
+          value: 0
+        },
         searchString: {
           value: '',
           type: String,
           observer: '_searchStringChanged'
+        },
+        queryField: {
+          value: 'code',
+          type: String,
+          observer: '_queryStringChanged'
+        },
+        queryString: {
+          value: '',
+          type: String,
+          observer: '_queryStringChanged'
         },
         workstationString: {
           value: '',
@@ -68,9 +182,46 @@
         mask: {
           value: '',
           type: String
+        },
+        selectedTicket: {
+          type: Object,
+          value: {}
         }
       },
       observers: ['_permissionsChanged(permissions.can-manage)'],
+      listeners: {
+        'button-action-complete': 'handleComplete',
+        'button-action-failed': 'handleFail'
+      },
+      handleComplete() {
+        console.log('complete');
+      },
+      handleFail() {
+        console.log('failed');
+      },
+      _queryStringChanged() {
+        this.debounce('find-tickets', () => {
+          let params = {
+            text: this.queryString,
+            field: this.queryField,
+            department: this.getDepartments()
+          };
+
+          this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets));
+        }, 500);
+      },
+      hasTicket(selectedTicket) {
+        return _.isEmpty(selectedTicket);
+      },
+      searchTap(e) {
+        let row = e.detail.row;
+        this._selectTicket(row);
+      },
+      _selectTicket(row) {
+        this.set('selectedIndex', row);
+        this.set('selectedTicket', false);
+        this.set('selectedTicket', this.tickets[row]);
+      },
       _permissionsChanged(permissions) {
         this.synchronizeData();
       },
@@ -90,36 +241,41 @@
       },
       cellTap(e) {
         let detail = e.detail;
-        if (detail.col < 2) return false;
+        if (detail.col < 2)
+          return false;
 
         let fields = detail.model.fields;
         let row = detail.row;
-        let service = _.isNumber(row) ? _.get(this.$['service-table'], ['data', row, 'id']) : undefined;
+        let service = _.isNumber(row)
+          ? _.get(this.$['service-table'], ['data', row, 'id'])
+          : undefined;
         let names = _.values(fields);
-        this.$.reception.getServiceDetails({
-          param_names: names,
-          service: service,
-          department: this.getDepartments()
-        }).then((response) => {
-          let service_label = service ? _.get(this.services, [service, 'label']) : false;
-          _.forEach(response, item => item.service = service_label ? service_label : _.get(this.services, [item.service, 'label']));
+        this.$.workstation.getServiceDetails({param_names: names, service: service, department: this.getDepartments()}).then((response) => {
+          let service_label = service
+            ? _.get(this.services, [service, 'label'])
+            : false;
+          _.forEach(response, item => item.service = service_label
+            ? service_label
+            : _.get(this.services, [item.service, 'label']));
           this.set('cellInfo', response);
           this.$.dialog.open();
         });
       },
       filter(data, mask) {
-        if (!mask) return data;
+        if (!mask)
+          return data;
 
-        return _.filter(data, (item) => ~item.label.toLowerCase().indexOf(mask.toLowerCase()))
+        return _.filter(data, (item) => ~ item.label.toLowerCase().indexOf(mask.toLowerCase()))
       },
       filterWS(data, mask) {
-        if (!mask) return data;
+        if (!mask)
+          return data;
 
         let fields = _.filter(data, (item) => {
           let provides = item.provides;
           let service = _.find(provides, (service_id) => {
             let s = this.services[service_id];
-            return ~s.label.toLowerCase().indexOf(mask);
+            return ~ s.label.toLowerCase().indexOf(mask);
           });
           return !!service;
         });
@@ -127,127 +283,169 @@
         return fields;
       },
       ready() {
+        this.fields = [
+          {
+            name: 'ПИН',
+            value: 'code'
+          }, {
+            name: 'Код талона',
+            value: 'label'
+          }
+        ];
         this.wsMask = '';
-        let slashed_sum = function(acc, v) {
-          if (_.get(v, 'first')) acc.first = !!acc.first ? acc.first + v.first : v.first;
-          if (_.get(v, 'second')) acc.second = !!acc.second ? acc.second + v.second : v.second;
+        let slashed_sum = function (acc, v) {
+          if (_.get(v, 'first'))
+            acc.first = !!acc.first
+              ? acc.first + v.first
+              : v.first;
+          if (_.get(v, 'second'))
+            acc.second = !!acc.second
+              ? acc.second + v.second
+              : v.second;
           return acc;
         };
-        let slashed_max = function(acc, v) {
+        let slashed_max = function (acc, v) {
           return {
-            first: _.max([acc.first, _.get(v, 'first')]),
-            second: _.max([acc.second, _.get(v, 'second')])
+            first: _.max([
+              acc.first,
+              _.get(v, 'first')
+            ]),
+            second: _.max([
+              acc.second,
+              _.get(v, 'second')
+            ])
           };
         };
+        this.ticketFieldsModel = [
+          {
+            field: 'code',
+            label: 'ПИН'
+          }, {
+            field: 'label',
+            label: 'Код'
+          }, {
+            field: 'service',
+            label: 'Услуга',
+            transform: (service) => {
+              return _.get(this.services, [service, 'label'])
+            }
+          }
+        ];
 
-        this.fieldsModel = [{
-          field: 'label',
-          label: 'Название',
-          reducer: ''
-        }, {
-          fields: {
-            first: 'live-slots',
-            second: 'prebook-slots'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_max,
-          initial: {},
-          label: 'Доступно'
-        }, {
-          fields: {
-            first: 'issued-tickets',
-            second: 'issued-tickets-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Выдано'
-        }, {
-          fields: {
-            first: 'in-room',
-            second: 'in-room-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'В зале'
-        }, {
-          fields: {
-            first: 'waiting',
-            second: 'waiting-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Ожидают'
-        }, {
-          fields: {
-            first: 'processing',
-            second: 'processing-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Обслуживаются'
-        }, {
-          fields: {
-            first: 'postponed',
-            second: 'postponed-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Отложено'
-        }, {
-          fields: {
-            first: 'processed',
-            second: 'processed-services'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Обслужено'
-        }, {
-          fields: {
-            first: 'total-live',
-            second: 'total-prebook'
-          },
-          template: 'slashed',
-          summary: 'slashed',
-          reducer: slashed_sum,
-          initial: {},
-          label: 'Всего'
-        }];
+        this.fieldsModel = [
+          {
+            field: 'label',
+            label: 'Название',
+            reducer: ''
+          }, {
+            fields: {
+              first: 'live-slots',
+              second: 'prebook-slots'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_max,
+            initial: {},
+            label: 'Доступно'
+          }, {
+            fields: {
+              first: 'issued-tickets',
+              second: 'issued-tickets-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Выдано'
+          }, {
+            fields: {
+              first: 'in-room',
+              second: 'in-room-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'В зале'
+          }, {
+            fields: {
+              first: 'waiting',
+              second: 'waiting-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Ожидают'
+          }, {
+            fields: {
+              first: 'processing',
+              second: 'processing-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Обслуживаются'
+          }, {
+            fields: {
+              first: 'postponed',
+              second: 'postponed-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Отложено'
+          }, {
+            fields: {
+              first: 'processed',
+              second: 'processed-services'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Обслужено'
+          }, {
+            fields: {
+              first: 'total-live',
+              second: 'total-prebook'
+            },
+            template: 'slashed',
+            summary: 'slashed',
+            reducer: slashed_sum,
+            initial: {},
+            label: 'Всего'
+          }
+        ];
 
-        let max = function(acc, v) {
-          return acc < v ? v : acc;
+        let max = function (acc, v) {
+          return acc < v
+            ? v
+            : acc;
         };
-        this.workstationFieldsModel = [{
-          field: 'label',
-          label: 'Название'
-        }, {
-          field: 'available',
-          label: 'Доступно'
-        }, {
-          field: 'paused',
-          label: 'Перерыв'
-        }, {
-          field: 'active',
-          label: 'Включено'
-        }, {
-          field: 'inactive',
-          label: 'Выключено'
-        }, {
-          field: 'total',
-          label: 'Всего'
-        }];
+        this.workstationFieldsModel = [
+          {
+            field: 'label',
+            label: 'Название'
+          }, {
+            field: 'available',
+            label: 'Доступно'
+          }, {
+            field: 'paused',
+            label: 'Перерыв'
+          }, {
+            field: 'active',
+            label: 'Включено'
+          }, {
+            field: 'inactive',
+            label: 'Выключено'
+          }, {
+            field: 'total',
+            label: 'Всего'
+          }
+        ];
       },
       hasPermissions() {
         let permission = this.permissions['can-manage'];
@@ -257,30 +455,31 @@
         let permission = this.permissions['can-manage'];
 
         return _.reduce(permission, (accum, item, key) => {
-          if (item) accum.push(key);
+          if (item)
+            accum.push(key);
           return accum;
         }, [])
       },
       connetcionRestored() {
-        if (this.logged && this.hasPermissions()) this.synchronizeData();
-      },
+        if (this.logged && this.hasPermissions())
+          this.synchronizeData();
+        }
+      ,
       synchronizeData() {
-        if (!this.hasPermissions()) return;
+        if (!this.hasPermissions())
+          return;
 
         let poll = () => {
           this.checkServices();
           this.checkWorkstations();
 
-          //@NOTE: rewrite this shitcode
-          //@NOTE: no timer-polls please
+          //@NOTE: rewrite this shitcode @NOTE: no timer-polls please
           this.logged && setTimeout(poll, 20000);
         };
         poll();
       },
       checkServices() {
-        this.$.reception.getServiceInfo({
-          department: this.getDepartments()
-        }).then((tickets) => {
+        this.$.workstation.getServiceInfo({department: this.getDepartments()}).then((tickets) => {
           let map = _.transform(this.services, (acc, service, key) => {
             let row = tickets[key + '--enum-service'] || {};
             row.label = this.services[key].label;
@@ -295,26 +494,21 @@
 
       },
       checkWorkstations() {
-        this.$.reception.getWorkstationInfo({
-          department: this.getDepartments()
-        }).then((data) => {
-          console.log(data);
-          let fields = _.chain(data)
-            .sortBy('label')
-            .map((item) => {
+        this.$.workstation.getWorkstationInfo({department: this.getDepartments()}).then((data) => {
 
-              item.available = item.state == 'active';
-              item.paused = item.state == 'paused';
-              item.active = item.state == 'active' || item.state == 'paused';
-              item.inactive = item.state == 'inactive';
-              // item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
+          let fields = _.chain(data).sortBy('label').map((item) => {
 
-              return item;
-            })
-            .value();
+            item.available = item.state == 'active';
+            item.paused = item.state == 'paused';
+            item.active = item.state == 'active' || item.state == 'paused';
+            item.inactive = item.state == 'inactive';
+            // item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
+
+            return item;
+          }).value();
 
           let services = _.map(this.services, (service, id) => {
-            let ws = _.filter(fields, field => field.provides && ~field.provides.indexOf(id));
+            let ws = _.filter(fields, field => field.provides && ~ field.provides.indexOf(id));
             let result = {
               available: 0,
               paused: 0,
