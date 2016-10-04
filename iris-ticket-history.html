@@ -1,0 +1,113 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iris-polymer-ticket-lifeline/iris-ticket-history-behavior.html">
+<link rel="import" href="../../bower_components/iron-icons/notification-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/image-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/editor-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/social-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/av-icons.html">
+<link rel="import" href="../../bower_components/iron-icons/maps-icons.html">
+
+<dom-module id="iris-ticket-history">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: auto;
+        margin: 0 15px;
+        padding: 10px 0;
+        border-top: 3px solid #E44E34;
+      }
+      paper-card {
+        padding: 10px;
+        margin: 5px;
+        flex: 1;
+        flex-basis: 250px;
+      }
+
+    </style>
+    <iris-shared-entities id="timezone" namespace="timezone" key="name" value="{{tz}}"></iris-shared-entities>
+    <iris-shared-entities id="operators" namespace="operators"></iris-shared-entities>
+    <iris-shared-entities id="workstations" namespace="workstations"></iris-shared-entities>
+
+    <template is="dom-repeat" items="[[ticket.history]]" filter="hasTranslation">
+      <paper-card>
+        <div>
+          <iron-icon icon="[[_getIcon(item.event_name)]]"></iron-icon>
+          [[_translateEvent(item.event_name,"true")]]
+        </div>
+        <div class="timestamp">
+          <div class="parts">
+            <span class="day">[[_transformDay(item.local_time)]]
+            </span>
+            <span class="time">[[_transformTime(item.local_time)]]
+            </span>
+            <span class="date">[[_transformDate(item.local_time)]]
+            </span>
+          </div>
+        </div>
+        <div class="details">
+          <template is="dom-repeat" items="[[computeDetails(item)]]" as="detail">
+            <div class="detail">
+              <span class="value">[[detail.value]]</span>
+            </div>
+          </template>
+        </div>
+      </paper-card>
+    </template>
+  </template>
+  <script>
+    (function () {
+
+      Polymer({
+        is: 'iris-ticket-history',
+        behaviors: [window.IrisBehaviors.TicketHistoryBehavior],
+        properties: {
+          ticket: {
+            type: Object
+          }
+        },
+        computeDetails(item) {
+          let name = item.subject.type.toLowerCase();
+          let type = `_${name}Event`;
+          let method = this[type];
+          return method && method.call(this, item);
+        },
+        _systemEvent(item) {
+          return [
+            {
+              value: 'Система'
+            }
+          ];
+        },
+        hasTranslation(item) {
+          return !!this._translateEvent(item.event_name, true);
+        },
+        _operatorEvent(item) {
+          let id = item.subject.id;
+          let oper = this.$.operators.get(id) || {};
+
+          return [
+            {
+              value: `${oper.first_name} ${oper.middle_name} ${oper.last_name}`
+            }
+          ];
+        },
+        _employeeEvent(item) {
+          return this._operatorEvent(item)
+        },
+        _terminalEvent(item) {
+          let id = item.subject.id;
+          let ws = this.$.workstations.get(id) || {};
+
+          return [
+            {
+              value: `${ws.label}`
+            }
+          ];
+        }
+      });
+
+    })();
+  </script>
+</dom-module>

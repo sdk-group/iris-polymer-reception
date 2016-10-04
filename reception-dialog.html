@@ -31,6 +31,7 @@
         border: 3px solid #6E4D44;
         color: #6E4D44;
       }
+
     </style>
 
     <paper-dialog id="dialog" entry-animation="slide-from-left-animation" exit-animation="slide-left-animation">
@@ -51,16 +52,18 @@
         }
       },
       ready() {
-        this.fieldsModel = [{
-          field: 'label',
-          label: 'Номер'
-        }, {
-          field: 'service',
-          label: 'Услуга'
-        }, {
-          field: 'user_info.fio',
-          label: 'ФИО'
-        }]
+        this.fieldsModel = [
+          {
+            field: 'label',
+            label: 'Номер'
+          }, {
+            field: 'service',
+            label: 'Услуга'
+          }, {
+            field: 'user_info.fio',
+            label: 'ФИО'
+          }
+        ]
       },
       open() {
         this.$.dialog.open();

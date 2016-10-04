@@ -3,6 +3,7 @@
 
 <link rel="import" href="cell-models.html">
 <link rel="import" href="reception-dialog.html">
+<link rel="import" href="iris-ticket-history.html">
 
 <dom-module id="iris-reception">
   <template>
@@ -32,12 +33,14 @@
         --paper-spinner-layer-2-color: var(--mydoc-red-800);
         --paper-spinner-layer-3-color: var(--mydoc-brown-1000);
         --paper-spinner-layer-4-color: var(--mydoc-beige-1000);
+        @apply(--layout-vertical);
+        height: 100%;
       }
 
       #service-table,
       #workstation-table,
       .table-wrap {
-        max-height: 500px;
+        /*max-height: 500px;*/
       }
 
       iron-icon {
@@ -74,16 +77,54 @@
         top: 2px;
       }
 
+      #ticketDialog {
+        @apply(--layout-vertical);
+        width: 100%;
+        top: 64px;
+        bottom: 0;
+        margin: 0;
+        border-top: 3px solid #E44E34;
+      }
+
+      .dialog-head {
+        font-size: 19px;
+        padding-left: 15px;
+        margin: 10px 0;
+        min-height: 40px;
+        @apply(--layout-horizontal);
+        @apply(--layout-justified);
+      }
+
+      paper-fab {
+        border-radius: 3px;
+        background-color: rgba(0, 0, 0, 0.0);
+        border: 3px solid #6E4D44;
+        color: #6E4D44;
+      }
+
+      #ticket-dialog-wrapper {
+        overflow: auto;
+      }
+
+      iron-pages > div {
+        @apply(--layout-vertical);
+        @apply(--layout-flex-auto);
+      }
+
+      iron-pages {
+        @apply(--layout-vertical);
+      }
+
     </style>
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
-    <iris-connection on-connection-restore="connetcionRestored"></iris-connection>
-    <iris-reception-api id="workstation" workstation-type="reception"></iris-reception-api>
+    <iris-connection on-connection-restore="connectionRestored"></iris-connection>
+    <iris-reception-api id="workstation" workstation-type="reception" on-ticket-changed="ticketChanged"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
     <iris-routing-dialog id="routing"></iris-routing-dialog>
 
-    <reception-dialog id="dialog" data="[[cellInfo]]"></reception-dialog>
+    <reception-dialog id="dialog" data="[[cellInfo]]" on-cell-tap="routingCellTap"></reception-dialog>
 
     <paper-tabs selected="{{selected}}">
       <paper-tab>Посетители и талоны</paper-tab>
@@ -102,7 +143,7 @@
         <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" data="[[filter(workstationsData,wsMask)]]"></iris-table>
       </div>
 
-      <div id="ticket-manager-wrapper" on-ticket-action="ticketAction">
+      <div id="ticket-manager-wrapper">
         <div id="ticket-search">
           <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
           <paper-dropdown-menu label="Поле">
@@ -116,15 +157,21 @@
           </paper-dropdown-menu>
           <paper-icon-button icon="autorenew" on-tap="_queryStringChanged"></paper-icon-button>
         </div>
+
         <iris-table id="ticket-table" fixed-header fields-model="[[ticketFieldsModel]]" data="[[tickets]]" on-cell-tap="searchTap"></iris-table>
 
-        <iris-ticketview id="viewer" hidden$="[[hasTicket(selectedTicket)]]" ticket="{{selectedTicket}}" view="detail">
+      </div>
+    </iron-pages>
+
+    <paper-dialog id="ticketDialog" entry-animation="slide-from-left-animation" exit-animation="slide-left-animation" on-ticket-action="ticketAction">
+      <div class='dialog-head'>
+        <paper-fab class="flat" mini icon="chevron-left" elevation="0" on-tap="closeList"></paper-fab>
+      </div>
+
+      <div id="ticket-dialog-wrapper">
+        <iris-ticketview id="viewer" hidden$="[[hasTicket(selectedTicket)]]" ticket="{{selectedTicket}}" override="[[override_actions]]" view="detail">
           <div class="ticket-action ">
-            <paper-button ticket-action="postpone" class="btn-primary" raised elevation="0" tabindex="-1">
-              Отложить
-              <paper-spinner hidden alt="Loading"></paper-spinner>
-            </paper-button>
-            <paper-button ticket-action="route" class="btn-primary" raised elevation="0" tabindex="-1">
+            <paper-button ticket-action="route-admin" class="btn-primary" raised elevation="0" tabindex="-1">
               Передать
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
@@ -133,7 +180,7 @@
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
             <paper-button ticket-action="close" class="btn-primary" raised elevation="0" tabindex="-1">
-              Закрыть
+              Удалить
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
             <paper-button ticket-action="priority-up" class="btn-primary" raised elevation="0" tabindex="-1">
@@ -141,13 +188,16 @@
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
             <paper-button ticket-action="priority-down" class="btn-primary" raised elevation="0" tabindex="-1">
-              Снизить приоритет
+              Понизить приоритет
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
           </div>
         </iris-ticketview>
+
+        <iris-ticket-history ticket="{{selectedTicket}}"></iris-ticket-history>
       </div>
-    </iron-pages>
+
+    </paper-dialog>
 
   </template>
   <script>
@@ -188,26 +238,97 @@
           value: {}
         }
       },
-      observers: ['_permissionsChanged(permissions.can-manage)'],
+      observers: [
+        '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)'
+      ],
+      _pageChanged(selected) {
+        if (selected == 2) {
+          this._queryStringChanged();
+          return;
+        }
+
+        if (!this.logged)
+          return;
+        this.synchronizeData();
+      },
       listeners: {
         'button-action-complete': 'handleComplete',
         'button-action-failed': 'handleFail'
       },
-      handleComplete() {
-        console.log('complete');
+      ticketChanged(e) {
+        let data = e.detail;
+        let ticket = data.ticket;
+
+        if (!_.isEmpty(this.selectedTicket) && ticket.getId() == this.selectedTicket.getId())
+          this.set('selectedTicket', ticket);
+
+        _.forEach(this.tickets, (t, index) => {
+          if (t.getId() == ticket.getId()) {
+            this.splice('tickets', index, 1, ticket);
+            return false;
+          }
+        })
       },
-      handleFail() {
-        console.log('failed');
+      routingCellTap(e) {
+        let ticket = this.cellInfo[e.detail.row];
+        this.set('selectedIndex', false);
+        this.set('selectedTicket', false);
+        this.set('selectedTicket', ticket);
+
+        this.$.ticketDialog.open();
+      },
+      toggleHistory() {
+        this.$.historyCollapse.toggle();
+      },
+      handleComplete(d) {
+        console.log('complete', d);
+        if (!d.detail)
+          return;
+
+        this.set('selectedTicket', d.detail);
+        this.async(() => this.$.viewer.restoreButtonsState())
+      },
+      handleFail(d) {
+        console.log('failed', d);
+      },
+      _getServicesByLabel(string) {
+        if (!string) {
+          return false;
+        }
+
+        string = string.toLowerCase();
+        let text = _.chain(this.services).filter(service => ~ service.label.toLowerCase().indexOf(string)).map('id').value();
+
+        return text;
+      },
+      _findServices(string) {
+        let text = this._getServicesByLabel(string);
+        return text.length
+          ? text.join(',')
+          : "NOTHING";
       },
       _queryStringChanged() {
         this.debounce('find-tickets', () => {
+          let text = this.queryField != 'service'
+            ? this.queryString.toLowerCase()
+            : this._findServices(this.queryString);
+
+          if (text === false)
+            return;
+
           let params = {
-            text: this.queryString,
+            text: text,
             field: this.queryField,
             department: this.getDepartments()
           };
 
-          this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets));
+          this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+            if (err == 'ws not initialized') {
+              /*silence*/
+              return;
+            }
+            throw new Error(err);
+          });
         }, 500);
       },
       hasTicket(selectedTicket) {
@@ -215,29 +336,42 @@
       },
       searchTap(e) {
         let row = e.detail.row;
+
         this._selectTicket(row);
       },
       _selectTicket(row) {
+        // console.log(this.tickets[row]);
         this.set('selectedIndex', row);
         this.set('selectedTicket', false);
         this.set('selectedTicket', this.tickets[row]);
+
+        this.$.ticketDialog.open();
+      },
+      closeList() {
+        this.$.ticketDialog.close();
       },
       _permissionsChanged(permissions) {
-        this.synchronizeData();
+        this.synchronizeData(true);
       },
       _searchStringChanged() {
         if (this.searchString == '') {
           this.set('mask', this.searchString);
           return
         }
-        this.debounce('set-mask', () => this.set('mask', this.searchString), 500)
+        this.debounce('set-mask', () => {
+          this.set('mask', this.searchString);
+          this.$["service-table"].scrollTop = 0;
+        }, 500)
       },
       _workstationStringChanged(string) {
         if (string == '') {
           this.set('wsMask', string);
           return
         }
-        this.debounce('set-ws-mask', () => this.set('wsMask', string.toLowerCase()), 500)
+        this.debounce('set-ws-mask', () => {
+          this.set('wsMask', string.toLowerCase());
+          this.$["workstation-table"].scrollTop = 0;
+        }, 500)
       },
       cellTap(e) {
         let detail = e.detail;
@@ -249,6 +383,11 @@
         let service = _.isNumber(row)
           ? _.get(this.$['service-table'], ['data', row, 'id'])
           : undefined;
+
+        if (!service && this.searchString) {
+          service = this._getServicesByLabel(this.searchString);
+        }
+
         let names = _.values(fields);
         this.$.workstation.getServiceDetails({param_names: names, service: service, department: this.getDepartments()}).then((response) => {
           let service_label = service
@@ -283,13 +422,68 @@
         return fields;
       },
       ready() {
+        this.override_actions = {
+          'registered': {
+            'route-admin': true,
+            'restore': 'disabled',
+            'priority-up': true,
+            'priority-down': true,
+            'close': true
+          },
+          'called': {
+            'route-admin': true,
+            'restore': 'disabled',
+            'priority-up': true,
+            'priority-down': true,
+            'close': true
+          },
+          'processing': {
+            'route-admin': true,
+            'restore': 'disabled',
+            'priority-up': true,
+            'priority-down': true,
+            'close': true
+          },
+          'postponed': {
+            'route-admin': true,
+            'restore': 'disabled',
+            'priority-up': true,
+            'priority-down': true,
+            'close': true
+          },
+          'booked': {
+            'route-admin': 'disabled',
+            'restore': 'disabled',
+            'priority-up': true,
+            'priority-down': true,
+            'close': true
+          },
+          'closed': {
+            'route-admin': 'disabled',
+            'restore': true,
+            'priority-up': 'disabled',
+            'priority-down': 'disabled',
+            'close': 'disabled'
+          },
+          'expired': {
+            'route-admin': 'disabled',
+            'restore': true,
+            'priority-up': 'disabled',
+            'priority-down': 'disabled',
+            'close': 'disabled'
+          }
+
+        };
         this.fields = [
           {
             name: 'ПИН',
             value: 'code'
           }, {
-            name: 'Код талона',
+            name: 'Номер талона',
             value: 'label'
+          }, {
+            name: 'Услуга',
+            value: 'service'
           }
         ];
         this.wsMask = '';
@@ -318,16 +512,24 @@
         };
         this.ticketFieldsModel = [
           {
-            field: 'code',
-            label: 'ПИН'
-          }, {
-            field: 'label',
-            label: 'Код'
+            fields: {
+              one: 'code',
+              two: 'label'
+            },
+            label: 'Номер талона',
+            template: "two-values"
           }, {
             field: 'service',
             label: 'Услуга',
             transform: (service) => {
               return _.get(this.services, [service, 'label'])
+            }
+          }, {
+            label: 'Тип записи',
+            transform: (ticket) => {
+              return ticket.is_prebook
+                ? 'ПЗ'
+                : 'ЖО';
             }
           }
         ];
@@ -455,28 +657,31 @@
         let permission = this.permissions['can-manage'];
 
         return _.reduce(permission, (accum, item, key) => {
-          if (item)
-            accum.push(key);
+          (!!item) && accum.push(key);
           return accum;
         }, [])
       },
-      connetcionRestored() {
-        if (this.logged && this.hasPermissions())
-          this.synchronizeData();
-        }
-      ,
-      synchronizeData() {
+      connectionRestored() {
+        if (!this.logged)
+          return;
+        this.synchronizeData(true);
+      },
+      synchronizeData(refresh) {
         if (!this.hasPermissions())
           return;
 
-        let poll = () => {
-          this.checkServices();
-          this.checkWorkstations();
+        this.poller && clearTimeout(this.poller);
+
+        let poll = (refresh) => {
+          if (this.selected == 0 || refresh)
+            this.checkServices();
+          if (this.selected == 1 || refresh)
+            this.checkWorkstations();
 
           //@NOTE: rewrite this shitcode @NOTE: no timer-polls please
-          this.logged && setTimeout(poll, 20000);
+          this.logged && (this.poller = setTimeout(poll, 20000));
         };
-        poll();
+        poll(refresh);
       },
       checkServices() {
         this.$.workstation.getServiceInfo({department: this.getDepartments()}).then((tickets) => {
