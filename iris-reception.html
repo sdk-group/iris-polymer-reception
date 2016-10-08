@@ -38,9 +38,11 @@
       }
 
       #service-table,
+      #ticket-table,
       #workstation-table,
       .table-wrap {
         /*max-height: 500px;*/
+        height: calc(100vh - 222px);
       }
 
       iron-icon {
@@ -50,6 +52,7 @@
       #ticket-search {
         @apply(--layout-horizontal);
         @apply(--layout-end);
+        min-height: 65px;
       }
 
       #query {
@@ -113,6 +116,7 @@
 
       iron-pages {
         @apply(--layout-vertical);
+        @apply(--layout-flex-auto);
       }
 
     </style>
@@ -194,7 +198,7 @@
           </div>
         </iris-ticketview>
 
-        <iris-ticket-history ticket="{{selectedTicket}}"></iris-ticket-history>
+        <iris-ticket-history ticket="{{selectedTicket}}" on-history-action="historyAction"></iris-ticket-history>
       </div>
 
     </paper-dialog>
@@ -279,6 +283,27 @@
       },
       toggleHistory() {
         this.$.historyCollapse.toggle();
+      },
+      historyAction(e) {
+        console.log(e);
+        if (e.detail.action == "show") {
+          let id = e.detail.value;
+
+          let params = {
+            text: id,
+            field: '@id',
+            department: this.getDepartments()
+          };
+
+          this.$.workstation.queryTickes(params).then(tickets => {
+            let ticket = _.head(tickets);
+            if (!ticket)
+              return;
+
+            this.set('selectedTicket', false);
+            this.set('selectedTicket', ticket);
+          });
+        }
       },
       handleComplete(d) {
         console.log('complete', d);

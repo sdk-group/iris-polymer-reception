@@ -53,6 +53,11 @@
             </div>
           </template>
         </div>
+        <div class="links">
+          <template is="dom-repeat" items="[[computeLinks(item)]]" as="detail">
+            <paper-button on-tap="linkTap">[[detail.label]]</paper-button>
+          </template>
+        </div>
       </paper-card>
     </template>
   </template>
@@ -95,6 +100,22 @@
         },
         _employeeEvent(item) {
           return this._operatorEvent(item)
+        },
+        linkTap(e) {
+          let item = e.model.detail;
+          this.fire(`history-action`, item);
+        },
+        computeLinks(item) {
+          if (!!item.context && item.context.inherits) {
+            return [
+              {
+                label: "К талону",
+                value: item.context.inherits,
+                action: "show"
+              }
+            ];
+          }
+          return [];
         },
         _terminalEvent(item) {
           let id = item.subject.id;
