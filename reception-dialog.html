@@ -33,6 +33,7 @@
       }
 
     </style>
+    <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
 
     <paper-dialog id="dialog" entry-animation="slide-from-left-animation" exit-animation="slide-left-animation">
       <div class='dialog-head'>
@@ -58,7 +59,10 @@
             label: 'Номер'
           }, {
             field: 'service',
-            label: 'Услуга'
+            label: 'Услуга',
+            transform: (service) => {
+              return _.get(this.services, [service, 'label'])
+            }
           }, {
             field: 'user_info.fio',
             label: 'ФИО'

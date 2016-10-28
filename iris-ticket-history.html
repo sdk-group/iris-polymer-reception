@@ -25,6 +25,10 @@
         flex-basis: 250px;
       }
 
+      paper-button {
+        padding-left: 0;
+      }
+
     </style>
     <iris-shared-entities id="timezone" namespace="timezone" key="name" value="{{tz}}"></iris-shared-entities>
     <iris-shared-entities id="operators" namespace="operators"></iris-shared-entities>
@@ -55,7 +59,10 @@
         </div>
         <div class="links">
           <template is="dom-repeat" items="[[computeLinks(item)]]" as="detail">
-            <paper-button on-tap="linkTap">[[detail.label]]</paper-button>
+            <paper-button on-tap="linkTap">
+              <iron-icon icon="content-copy"></iron-icon>
+              [[detail.label]]
+            </paper-button>
           </template>
         </div>
       </paper-card>
@@ -78,29 +85,10 @@
           let method = this[type];
           return method && method.call(this, item);
         },
-        _systemEvent(item) {
-          return [
-            {
-              value: 'Система'
-            }
-          ];
-        },
         hasTranslation(item) {
           return !!this._translateEvent(item.event_name, true);
         },
-        _operatorEvent(item) {
-          let id = item.subject.id;
-          let oper = this.$.operators.get(id) || {};
 
-          return [
-            {
-              value: `${oper.first_name} ${oper.middle_name} ${oper.last_name}`
-            }
-          ];
-        },
-        _employeeEvent(item) {
-          return this._operatorEvent(item)
-        },
         linkTap(e) {
           let item = e.model.detail;
           this.fire(`history-action`, item);
@@ -109,23 +97,13 @@
           if (!!item.context && item.context.inherits) {
             return [
               {
-                label: "К талону",
+                label: "Исходный талон",
                 value: item.context.inherits,
                 action: "show"
               }
             ];
           }
           return [];
-        },
-        _terminalEvent(item) {
-          let id = item.subject.id;
-          let ws = this.$.workstations.get(id) || {};
-
-          return [
-            {
-              value: `${ws.label}`
-            }
-          ];
         }
       });
 
