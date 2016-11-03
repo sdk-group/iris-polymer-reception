@@ -209,7 +209,7 @@
               Вернуть
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
-            <paper-button ticket-action="close" class="btn-primary" raised elevation="0" tabindex="-1" onkeydown="return false" onkeypress="return false">
+            <paper-button ticket-action="remove" class="btn-primary" raised elevation="0" tabindex="-1" onkeydown="return false" onkeypress="return false">
               Удалить
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
@@ -562,6 +562,7 @@
             'restore': 'disabled',
             'priority-up': true,
             'priority-down': true,
+            'remove': true,
             'close': true
           },
           'called': {
@@ -569,6 +570,7 @@
             'restore': 'disabled',
             'priority-up': true,
             'priority-down': true,
+            'remove': 'disabled',
             'close': 'disabled'
           },
           'processing': {
@@ -576,6 +578,7 @@
             'restore': 'disabled',
             'priority-up': true,
             'priority-down': true,
+            'remove': 'disabled',
             'close': 'disabled'
           },
           'postponed': {
@@ -583,6 +586,7 @@
             'restore': 'disabled',
             'priority-up': true,
             'priority-down': true,
+            'remove': true,
             'close': true
           },
           'booked': {
@@ -590,13 +594,15 @@
             'restore': 'disabled',
             'priority-up': true,
             'priority-down': true,
+            'remove': true,
             'close': true
           },
           'closed': {
             'route-admin': 'disabled',
-            'restore': true,
+            'restore': 'disabled',
             'priority-up': 'disabled',
             'priority-down': 'disabled',
+            'remove': 'disabled',
             'close': 'disabled'
           },
           'expired': {
@@ -604,6 +610,7 @@
             'restore': true,
             'priority-up': 'disabled',
             'priority-down': 'disabled',
+            'remove': 'disabled',
             'close': 'disabled'
           },
           'removed': {
@@ -611,10 +618,11 @@
             'restore': true,
             'priority-up': 'disabled',
             'priority-down': 'disabled',
+            'remove': 'disabled',
             'close': 'disabled'
           }
-
         };
+
         this.fields = [
           {
             name: 'Номер талона',
