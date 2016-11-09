@@ -47,7 +47,7 @@
       }
 
       #ticket-table {
-        height: calc(100vh - 600px);
+        height: calc(100vh - 350px);
       }
 
       iron-icon {
@@ -264,7 +264,7 @@
         let text = this.queryField != 'service'
             ? this.queryString.toLowerCase()
             : this._findServices(this.queryString);
-            
+
         if (text === false)
           return;
 
