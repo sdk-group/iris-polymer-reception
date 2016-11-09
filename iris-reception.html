@@ -373,8 +373,11 @@
           let params = {
             text: text,
             field: this.queryField,
-            department: this.getDepartments()
+            department: this.getDepartments(),
           };
+
+          if(this.$.datePicker.selected)
+            params.date = this.$.datePicker.selected;
 
           this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
             if (err == 'ws not initialized') {
