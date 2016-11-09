@@ -46,8 +46,8 @@
         height: calc(100vh - 222px);
       }
 
-      #ticket-table.table-wrap {
-        height: calc(100vh - 400px);
+      #ticket-table {
+        height: calc(100vh - 600px);
       }
 
       iron-icon {
@@ -261,10 +261,22 @@
         '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)'
       ],
       daySelected(e) {
+        let text = this.queryField != 'service'
+            ? this.queryString.toLowerCase()
+            : this._findServices(this.queryString);
+
+        console.log(`***** ${text} *****`);
+        if (text === false)
+          return;
+
         let params = {
+          field: this.queryField,
           department: this.getDepartments(),
           date: this.$.datePicker.selected
         };
+
+        if (text != 'NOTHING')
+            params.text = text;
 
         this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
           if (err == 'ws not initialized') {
