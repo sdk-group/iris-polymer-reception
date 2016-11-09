@@ -264,8 +264,7 @@
         let text = this.queryField != 'service'
             ? this.queryString.toLowerCase()
             : this._findServices(this.queryString);
-
-        console.log(`***** ${text} *****`);
+            
         if (text === false)
           return;
 
