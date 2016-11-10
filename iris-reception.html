@@ -163,7 +163,7 @@
 
       <div id="ticket-manager-wrapper">
         <div id="ticket-by-date">
-          <iris-date-picker id="datePicker" on-date-selected="daySelected"></iris-date-picker>
+          <iris-date-picker id="datePicker" on-date-selected="_queryStringChanged"></iris-date-picker>
         </div>
         <div id="ticket-search">
           <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
@@ -260,31 +260,6 @@
       observers: [
         '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)'
       ],
-      daySelected(e) {
-        let text = this.queryField != 'service'
-            ? this.queryString.toLowerCase()
-            : this._findServices(this.queryString);
-
-        if (text === false)
-          return;
-
-        let params = {
-          field: this.queryField,
-          department: this.getDepartments(),
-          date: this.$.datePicker.selected
-        };
-
-        if (text != 'NOTHING')
-            params.text = text;
-
-        this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
-          if (err == 'ws not initialized') {
-            return;
-          }
-        throw new Error(err);
-      });
-        
-      },
       _pageChanged(selected) {
         if (selected == 2) {
           this._queryStringChanged();
