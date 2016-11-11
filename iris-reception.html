@@ -286,7 +286,7 @@
           department: this.getDepartments()
         };
 
-        this.$.workstation.queryTickes(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
+        this.$.workstation.queryTickets(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
       },
       _computeWsPage(toggle) {
         return !toggle
@@ -394,7 +394,7 @@
             department: this.getDepartments()
           };
 
-          this.$.workstation.queryTickes(params).then(tickets => {
+          this.$.workstation.queryTickets(params).then(tickets => {
             let ticket = _.head(tickets);
             if (!ticket)
               return;
@@ -420,7 +420,7 @@
         }
 
         string = string.toLowerCase();
-        let text = _.chain(this.services).filter(service => ~ service.label.toLowerCase().indexOf(string)).map('id').value();
+        let text = _.chain(this.services).filter((service, index) => ~ (service.label || '').toLowerCase().indexOf(string)).map('id').value();
 
         return text;
       },
@@ -460,7 +460,7 @@
             department: this.getDepartments()
           };
 
-          this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+          this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
             if (err == 'ws not initialized') {
               /*silence*/
               return;
