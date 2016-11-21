@@ -292,11 +292,10 @@
 
         let params = {
           text: '-',
-          field: 'destination',
-          department: this.getDepartments()
+          field: 'destination'
         };
 
-        this.$.workstation.queryTickes(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
+        this.$.workstation.queryTickets(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
       },
       _computeWsPage(toggle) {
         return !toggle
@@ -345,7 +344,10 @@
         this.updateWorkstationList(ticket);
       },
       updateWorkstationList(ticket) {
-        let dest = ticket.destination || _.get(_.find(this.cached_tickets, item => item && item.id == ticket.id), 'destination');
+        let dest = ticket.destination && !ticket.just_routed
+          ? ticket.destination
+          : _.get(_.find(this.cached_tickets, item => item && item.id == ticket.id), 'destination');
+
         let to_save = ~['called', 'processing'].indexOf(ticket.state)
           ? ticket
           : {};
@@ -400,11 +402,10 @@
 
           let params = {
             text: id,
-            field: '@id',
-            department: this.getDepartments()
+            field: '@id'
           };
 
-          this.$.workstation.queryTickes(params).then(tickets => {
+          this.$.workstation.queryTickets(params).then(tickets => {
             let ticket = _.head(tickets);
             if (!ticket)
               return;
@@ -430,7 +431,7 @@
         }
 
         string = string.toLowerCase();
-        let text = _.chain(this.services).filter(service => ~ service.label.toLowerCase().indexOf(string)).map('id').value();
+        let text = _.chain(this.services).filter((service, index) => ~ (service.label || '').toLowerCase().indexOf(string)).map('id').value();
 
         return text;
       },
@@ -466,14 +467,14 @@
 
           let params = {
             text: text,
-            field: this.queryField,
-            department: this.getDepartments()
+            field: this.queryField
           };
 
           if(this.$.datePicker.selected)
             params.date = this.$.datePicker.selected;
 
-          this.$.workstation.queryTickes(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+          this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+
             if (err == 'ws not initialized') {
               /*silence*/
               return;
@@ -689,7 +690,8 @@
             label: 'Услуга',
             transform: (service) => {
               return _.get(this.services, [service, 'label'])
-            }
+            },
+            sortable: true
           }, {
             label: 'Пачка',
             transform: (ticket) => {
@@ -698,14 +700,16 @@
               let session = ticket.session;
 
               return session.split('--')[1];
-            }
+            },
+            sortable: true
           }, {
             label: 'Тип записи',
             transform: (ticket) => {
               return ticket.is_prebook
                 ? 'ПЗ'
                 : 'ЖО';
-            }
+            },
+            sortable: true
           }
         ];
 
@@ -821,6 +825,18 @@
 
               return `${oper.first_name} ${oper.middle_name} ${oper.last_name}`;
             }
+          }, {
+            field: 'ticket',
+            label: 'Услуга',
+            transform: (ticket) => {
+              return ticket
+                ? _.get(this.services, [ticket.service, 'label'])
+                : '';
+            }
+          }, {
+            label: "Время",
+            field: "ticket",
+            template: 'timer'
           }, {
             field: 'ticket',
             label: 'Талон',
