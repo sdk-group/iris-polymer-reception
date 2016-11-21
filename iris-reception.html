@@ -1,10 +1,12 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../paper-tabs/paper-tabs.html">
 <link rel="import" href="../paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="../iris-polymer-date-picker/iris-date-picker.html">
 
 <link rel="import" href="cell-models.html">
 <link rel="import" href="reception-dialog.html">
 <link rel="import" href="iris-ticket-history.html">
+
 
 <dom-module id="iris-reception">
   <template>
@@ -49,13 +51,20 @@
       }
 
       #service-table,
-      #ticket-table,
       #workstation-by-service-table,
       #workstation-table,
       .table-wrap {
         /*max-height: 500px;*/
         height: calc(100vh - 222px);
         overflow: auto;
+      }
+
+      #ticket-table {
+        height: calc(100vh - 525px);
+      }
+
+      iris-date-picker {
+        width: 350px;
       }
 
       iron-icon {
@@ -176,6 +185,7 @@
       </div>
 
       <div id="ticket-manager-wrapper">
+        <iris-date-picker id="datePicker" on-date-selected="_queryStringChanged"></iris-date-picker>
         <div id="ticket-search">
           <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
           <paper-dropdown-menu label="Поле">
@@ -460,7 +470,10 @@
             field: this.queryField
           };
 
-          this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+          if(this.$.datePicker.selected)
+            params.date = this.$.datePicker.selected;
+
+            this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
             if (err == 'ws not initialized') {
               /*silence*/
               return;
