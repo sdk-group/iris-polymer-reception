@@ -1,0 +1,18 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="ticket-status-cell">
+  <template>
+    <iris-ticket-status-bar ticket="[[value]]"></iris-ticket-status-bar>
+  </template>
+  <script>
+    Polymer({
+      is: 'ticket-status-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {}
+        }
+      }
+    });
+  </script>
+</dom-module>

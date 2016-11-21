@@ -1,5 +1,7 @@
 <link rel="import" href="slashed-cell.html">
 <link rel="import" href="turnoff-cell.html">
+<link rel="import" href="timer-cell.html">
+<link rel="import" href="ticket-status-cell.html">
 <link rel="import" href="../iris-polymer-table/etable-cell-register.html">
 
 <etable-cell-register name="slashed">
@@ -8,9 +10,21 @@
   </template>
 </etable-cell-register>
 
+<etable-cell-register name="ticket-status">
+  <template id="display">
+    <ticket-status-cell value="[[value]]"></ticket-status-cell>
+  </template>
+</etable-cell-register>
+
 <etable-cell-register name="turnoff">
   <template id="display">
     <turnoff-cell value="[[value]]"></turnoff-cell>
+  </template>
+</etable-cell-register>
+
+<etable-cell-register name="timer">
+  <template id="display">
+    <timer-cell value="[[value]]"></timer-cell>
   </template>
 </etable-cell-register>
 

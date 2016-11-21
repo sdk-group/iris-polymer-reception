@@ -1,0 +1,40 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="timer-cell">
+  <template>
+    <iris-shared-entities namespace="timezone" key="name" value="{{timezone}}"></iris-shared-entities>
+    <iris-doomclock hidden$="[[!showClock]]" id="countdown" can-negative></iris-doomclock>
+  </template>
+  <script>
+    Polymer({
+      is: 'timer-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {},
+          observer: "_ticketChanged"
+        }
+      },
+      _ticketChanged(ticket) {
+        let state = !_.isEmpty(ticket)
+          ? ticket.state
+          : 'no-state';
+
+        this.showClock = state == 'processing';
+        if (this.showClock) {
+          let now = moment.tz(this.timezone).diff(moment.tz(this.timezone).startOf('day'), 'seconds');
+          let start = ticket.time_description[0] > now
+            ? ticket.time_description[0]
+            : now;
+
+          let time_of_service = (ticket.time_description[1] - start) * 1000;
+          this.$.countdown.redZone = _.floor(0.3 * time_of_service);
+          this.$.countdown.start = time_of_service;
+          this.$.countdown.direction = 'down';
+        }
+
+        this.$.countdown.restart();
+      }
+    });
+  </script>
+</dom-module>
