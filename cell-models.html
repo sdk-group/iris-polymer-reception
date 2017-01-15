@@ -1,8 +1,17 @@
-<link rel="import" href="slashed-cell.html">
-<link rel="import" href="turnoff-cell.html">
-<link rel="import" href="timer-cell.html">
-<link rel="import" href="ticket-status-cell.html">
 <link rel="import" href="../iris-polymer-table/etable-cell-register.html">
+
+<link rel="import" href="cells/slashed-cell.html">
+<link rel="import" href="cells/turnoff-cell.html">
+<link rel="import" href="cells/timer-cell.html">
+<link rel="import" href="cells/waiting-cell.html">
+<link rel="import" href="cells/ticket-fields-cell.html">
+<link rel="import" href="cells/ticket-status-cell.html">
+
+<etable-cell-register name="ticket-fields">
+  <template id="display">
+    <ticket-fields-cell value="[[value]]"></ticket-fields-cell>
+  </template>
+</etable-cell-register>
 
 <etable-cell-register name="slashed">
   <template id="display">
@@ -19,6 +28,12 @@
 <etable-cell-register name="turnoff">
   <template id="display">
     <turnoff-cell value="[[value]]"></turnoff-cell>
+  </template>
+</etable-cell-register>
+
+<etable-cell-register name="waiting">
+  <template id="display">
+    <waiting-cell value="[[value]]"></waiting-cell>
   </template>
 </etable-cell-register>
 

@@ -1,0 +1,83 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="reception-week-day">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      paper-button {
+        color: white;
+        font-weight: bold;
+      }
+
+    </style>
+
+    <iris-shared-entities namespace="timezone" value="{{tz}}" key="ALL"></iris-shared-entities>
+
+    <template is="dom-repeat" items="[[weekDays(selectedDate,'before')]]">
+      <paper-button on-tap="selectWeekDay">[[item.text]]</paper-button>
+    </template>
+    <paper-menu-button id="datePickerMenu" horizontal-offset="-150">
+      <paper-button class="dropdown-trigger">
+        [[selectedDate]]
+      </paper-button>
+      <div class="dropdown-content">
+        <iris-date-picker id="datePicker" selected="{{selectedDate}}" on-tap="closePicker"></iris-date-picker>
+      </div>
+    </paper-menu-button>
+    <template is="dom-repeat" items="[[weekDays(selectedDate,'after')]]">
+      <paper-button on-tap="selectWeekDay">[[item.text]]</paper-button>
+    </template>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'reception-week-day',
+      properties: {
+        selectedDate: {
+          type: String,
+          notify: true
+        }
+      },
+      observers: ["reset(tz)"],
+      weekDays(selectedDate, direction) {
+        let date = moment(selectedDate);
+        let result = [];
+        for (var i = 0; i < 3; i++) {
+          let data = direction == 'before'
+            ? {
+              text: date.subtract(1, 'days').format("D")
+            }
+            : {
+              text: date.add(1, 'days').format("D")
+            };
+          data.date = date.format('YYYY-MM-DD');
+          direction == 'before'
+            ? result.unshift(data)
+            : result.push(data);
+        }
+        return result;
+      },
+      reset() {
+
+        this.set('selectedDate', this.now());
+        this.$.datePicker.selections = [this.selectedDate];
+      },
+      now() {
+        let tz = this.tz;
+        return moment(Date.now() - tz.offset).tz(tz.name).format('YYYY-MM-DD');
+      },
+      closePicker() {
+        this.$.datePickerMenu.close();
+      },
+      selectWeekDay(e) {
+        let date = e.model.item.date;
+        this.set('selectedDate', date);
+        this.$.datePicker.set('selections', [date]);
+      },
+      ready() {}
+    });
+  </script>
+</dom-module>

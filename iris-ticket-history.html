@@ -88,7 +88,6 @@
         hasTranslation(item) {
           return !!this._translateEvent(item.event_name, true);
         },
-
         linkTap(e) {
           let item = e.model.detail;
           this.fire(`history-action`, item);
@@ -99,6 +98,14 @@
               {
                 label: "Исходный талон",
                 value: item.context.inherits,
+                action: "show"
+              }
+            ];
+          } else if (!!item.context && item.context.offspring) {
+            return [
+              {
+                label: "Сформированный талон",
+                value: item.context.offspring,
                 action: "show"
               }
             ];

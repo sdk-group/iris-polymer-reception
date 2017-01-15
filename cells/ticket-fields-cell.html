@@ -1,0 +1,28 @@
+<dom-module id="ticket-fields-cell">
+  <style>
+    .ticket-list-value {
+      text-transform: uppercase;
+    }
+  </style>
+  <template>
+
+    <template is="dom-repeat" items="[[value.field_list]]">
+      <div class="ticket-list-raw">
+        <span class="ticket-list-label">[[item.label]]</span>:
+        <span class="ticket-list-value">[[item.value]]</span>
+      </div>
+    </template>
+
+  </template>
+  <script>
+    Polymer({
+      is: 'ticket-fields-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {}
+        }
+      }
+    });
+  </script>
+</dom-module>

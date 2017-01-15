@@ -1,0 +1,52 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="reception-tags">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+      .tag {
+        border-radius: 5px;
+        border-top-right-radius: 15px;
+        border-bottom-right-radius: 15px;
+        background-color: var(--mydoc-beige-800);
+        display: inline-flex;
+        flex-direction: row;
+        align-items: baseline;
+        padding: 0 5px;
+        color: white;
+      }
+
+      paper-icon-button {
+        width: 35px;
+        height: 35px;
+      }
+
+    </style>
+    <template is="dom-repeat" items="[[tagLabels]]">
+      <span class="tag">
+        <span>[[item]]</span>
+        <paper-icon-button icon="close" on-tap="removeTag"></paper-icon-button>
+      </span>
+    </template>
+  </template>
+  <script>
+    Polymer({
+      is: 'reception-tags',
+      properties: {
+        tags: {
+          type: Array,
+          notify: true
+        }
+      },
+      removeTag(e) {
+        let index = e.model.index;
+        this.splice('tags', index, 1);
+        this.splice('tagLabels', index, 1);
+        console.log(this.tags)
+      }
+    });
+  </script>
+</dom-module>

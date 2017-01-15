@@ -1,0 +1,54 @@
+<dom-module id="waiting-cell">
+  <template>
+    <template is="dom-if" if="[[!icon]]">
+      [[time]]
+    </template>
+    <template is="dom-if" if="[[icon]]">
+      <iron-icon style="position: initial;" icon="[[icon]]"></iron-icon>
+    </template>
+  </template>
+  <script>
+    Polymer({
+      is: 'waiting-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {},
+          observer: "_ticketChanged"
+        },
+        icon: {
+          type: Boolean,
+          value: false
+        }
+      },
+      _ticketChanged(ticket) {
+        (!!this.int_id) && clearInterval(this.int_id);
+
+        let start = ticket.getWaitingTime();
+        this.set('icon', false);
+
+        if (!start) {
+          let icon = '';
+          _.forEachRight(ticket.history, item => {
+            icon = this.getIcon(item.event_name);
+            return !icon;
+          });
+          this.set('icon', icon);
+          return;
+        }
+
+        this.set('time', start);
+
+        this.int_id = setInterval(() => {
+          this.set('time', ticket.getWaitingTime());
+        }, 600);
+      },
+      getIcon(key) {
+        return IrisBehaviors.TicketHistoryBehavior._getIcon(key);
+      },
+      detached() {
+        (!!this.int_id) && clearInterval(this.int_id);
+      }
+    });
+  </script>
+</dom-module>

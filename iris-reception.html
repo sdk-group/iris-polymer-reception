@@ -1,12 +1,14 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-menu-button/paper-menu-button.html">
 <link rel="import" href="../paper-toggle-button/paper-toggle-button.html">
 <link rel="import" href="../iris-polymer-date-picker/iris-date-picker.html">
 
 <link rel="import" href="cell-models.html">
 <link rel="import" href="reception-dialog.html">
 <link rel="import" href="iris-ticket-history.html">
-
+<link rel="import" href="reception-week-day.html">
+<link rel="import" href="reception-tags.html">
 
 <dom-module id="iris-reception">
   <template>
@@ -20,7 +22,6 @@
         --iris-table-cell: {
           cursor: pointer;
         };
-
         --paper-tabs: {
           background-color: var(--mydoc-brown-800);
           font-size: 18px;
@@ -39,6 +40,10 @@
         --paper-spinner-layer-4-color: var(--mydoc-beige-1000);
         @apply(--layout-vertical);
         height: 100%;
+      }
+
+      paper-menu-button {
+        padding: 0;
       }
 
       #service-table {
@@ -60,7 +65,10 @@
       }
 
       #ticket-table {
-        height: calc(100vh - 525px);
+        height: calc(100vh - 270px);
+        --iris-table-col-5: {
+          min-width: 100px;
+        };
       }
 
       iris-date-picker {
@@ -70,8 +78,8 @@
       iron-icon {
         position: inherit;
       }
-
-      #ticket-search {
+      #ticket-search,
+      gbp #ticket-date {
         @apply(--layout-horizontal);
         @apply(--layout-end);
         min-height: 65px;
@@ -120,6 +128,14 @@
         @apply(--layout-justified);
       }
 
+      #ticket-date {
+        @apply(--layout-horizontal);
+        @apply(--layout-justified);
+        background-color: var(--mydoc-brown-800);
+        border-top: 3px solid var(--mydoc-beige-600);
+        min-height: 45px;
+      }
+
       paper-fab {
         border-radius: 3px;
         background-color: rgba(0, 0, 0, 0.0);
@@ -150,9 +166,12 @@
       }
 
     </style>
+
+    <terminal-printable-ticket id="printer" template-name="{{computedTicketTemplate}}"></terminal-printable-ticket>
+
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
     <iris-connection on-connection-restore="connectionRestored"></iris-connection>
-    <iris-reception-api id="workstation" workstation-type="reception" on-ticket-changed="ticketChanged"></iris-reception-api>
+    <iris-reception-api id="workstation" workstation-type="reception" ticket-design="{{prefix}}" on-ticket-changed="ticketChanged"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <iris-shared-entities namespace="operators" value="{{operators}}" key="ALL"></iris-shared-entities>
@@ -185,7 +204,8 @@
       </div>
 
       <div id="ticket-manager-wrapper">
-        <iris-date-picker id="datePicker" on-date-selected="_queryStringChanged"></iris-date-picker>
+        <reception-week-day id="ticket-date" selected-date="{{selectedDate}}"></reception-week-day>
+
         <div id="ticket-search">
           <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
           <paper-dropdown-menu label="Поле">
@@ -195,8 +215,10 @@
               </template>
             </paper-listbox>
           </paper-dropdown-menu>
+
           <paper-icon-button icon="autorenew" on-tap="_queryStringChanged"></paper-icon-button>
         </div>
+        <reception-tags tags="{{tag}}" tag-labels="{{tagLabels}}"></reception-tags>
 
         <iris-table id="ticket-table" fixed-header fields-model="[[ticketFieldsModel]]" data="[[tickets]]" on-cell-tap="searchTap"></iris-table>
 
@@ -223,6 +245,10 @@
               Удалить
               <paper-spinner hidden alt="Loading"></paper-spinner>
             </paper-button>
+            <paper-button ticket-action="register" class="btn-primary" raised elevation="0" tabindex="-1" onkeydown="return false" onkeypress="return false">
+              Напечатать
+              <paper-spinner hidden alt="Loading"></paper-spinner>
+            </paper-button>
             <paper-button ticket-action="priority-up" class="btn-primary" raised elevation="0" tabindex="-1" onkeydown="return false" onkeypress="return false">
               Повысить приоритет
               <paper-spinner hidden alt="Loading"></paper-spinner>
@@ -244,6 +270,10 @@
     Polymer({
       is: 'iris-reception',
       behaviors: [window.IrisBehaviors.ActionButtonsBehvior],
+      listeners: {
+        'button-action-complete': 'handleComplete',
+        'button-action-failed': 'handleFail'
+      },
       properties: {
         selected: {
           type: Number,
@@ -258,6 +288,13 @@
           value: 'label',
           type: String,
           observer: '_queryStringChanged'
+        },
+        selectedDate: {
+          type: String,
+          observer: '_queryStringChanged'
+        },
+        tag: {
+          type: Array
         },
         wsPage: {
           type: Number,
@@ -281,18 +318,28 @@
         selectedTicket: {
           type: Object,
           value: {}
+        },
+        computedTicketTemplate: {
+          type: String,
+          computed: 'computeTicketTemplate(prefix,method)'
         }
       },
       observers: [
-        '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)', 'isLogged(logged)'
+        '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)', 'isLogged(logged)', '_queryStringChanged(tag.splices)'
       ],
+      computeTicketTemplate(prefix, booking_method) {
+        return prefix
+          ? `${prefix}-${booking_method}`
+          : booking_method;
+      },
       isLogged(logged) {
         if (!logged)
           return;
 
         let params = {
           text: '-',
-          field: 'destination'
+          field: 'destination',
+          department: this.getDepartments()
         };
 
         this.$.workstation.queryTickets(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
@@ -312,10 +359,6 @@
           return;
         this.synchronizeData();
       },
-      listeners: {
-        'button-action-complete': 'handleComplete',
-        'button-action-failed': 'handleFail'
-      },
       computeWorkstationFilter(string) {
         if (!string) {
           return null;
@@ -329,8 +372,22 @@
         }
       },
       workstationTurnoff(e) {
-        let workstation = e.detail;
-        this.$.workstation.turnoffWorkstation({target: workstation});
+        let workstation = e.detail.workstation;
+        this.$.workstation.turnoffWorkstation({target: workstation}).then((e) => {
+          if (e.success) {
+            let index = _.findIndex(this.workstationsData, ws => !!ws && ws.id == workstation);
+            let temp = _.clone(this.workstationsData[index]);
+
+            //@NOTE: omg, this so bad
+            this.splice('workstationsData', index, 1);
+            temp.occupied_by = [];
+            temp.available = false;
+            temp.paused = false;
+            temp.inactive = true;
+            temp.active = false;
+            this.splice('workstationsData', index, 0, temp);
+          }
+        }). finally(e.detail.callback);
       },
       ticketChanged(e) {
         let data = e.detail;
@@ -419,8 +476,37 @@
         if (!d.detail)
           return;
 
-        this.set('selectedTicket', d.detail);
-        this.async(() => this.$.viewer.restoreButtonsState())
+        let detail = d.detail;
+        let is_print = !!detail.context;
+
+        let ticket = is_print
+          ? detail.ticket
+          : detail;
+
+        this.set('selectedTicket', ticket);
+        this.async(() => this.$.viewer.restoreButtonsState());
+
+        if (is_print) {
+          let tickets = _.castArray(detail.ticket);
+          let contexts = _.castArray(detail.context);
+
+          _.forEach(tickets, (ticket, index) => {
+            let context = contexts[index];
+            let method = ticket.is_prebook
+              ? 'prebook'
+              : 'live';
+
+            console.log(ticket, ticket.is_activated);
+
+            method = ticket.is_activated
+              ? 'register'
+              : method;
+
+            this.set('method', method);
+            this.$.printer.init(ticket, context);
+            this.$.printer.print();
+          });
+        }
       },
       handleFail(d) {
         // console.log('failed', d);
@@ -467,13 +553,17 @@
 
           let params = {
             text: text,
-            field: this.queryField
+            field: this.queryField,
+            tag: _.isEmpty(this.tag)
+              ? undefined
+              : this.tag,
+            department: this.getDepartments()
           };
 
-          if(this.$.datePicker.selected)
-            params.date = this.$.datePicker.selected;
+          if (this.selectedDate && this.selectedDate != this.$["ticket-date"].now())
+            params.date = this.selectedDate;
 
-            this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
+          this.$.workstation.queryTickets(params).then(tickets => this.set('tickets', tickets)).catch(err => {
             if (err == 'ws not initialized') {
               /*silence*/
               return;
@@ -532,25 +622,29 @@
         let fields = detail.model.fields;
         let row = detail.row;
         let service = _.isNumber(row)
-          ? _.get(this.$['service-table'], ['data', row, 'id'])
+          ? _.get(this.$['service-table'], ['data', row, 'label'])
           : undefined;
 
-        if (!service && this.searchString) {
-          service = this._getServicesByLabel(this.searchString);
+        if (service || this.searchString) {
+          console.log(service);
+          this.set('queryField', 'service');
+          this.set('queryString', service || this.searchString);
         }
 
         let names = _.values(fields);
-        this.$.workstation.getServiceDetails({param_names: names, service: service, department: this.getDepartments()}).then((response) => {
 
-          this.set('cellInfo', response);
-          this.$.dialog.open();
-        });
+        this.set('tag', [_.head(names)]);
+        this.set('selectedDate', this.$["ticket-date"].now());
+        this.set('tagLabels', [_.find(this.fieldsModel, ['fields', fields]).label]);
+        this.set('selected', 3);
+        // let names = _.values(fields); this.$.workstation.getServiceDetails({param_names: names, service: service, department: this.getDepartments()}).then((response) => {   console.log('cell tap', response);   // this.set('cellInfo', response);
+        // this.$.dialog.open();   this.set('tickets', response);   this.set('selected', 3); });
       },
       filter(data, mask) {
         if (!mask)
           return data;
 
-        return _.filter(data, (item) => ~ item.label.toLowerCase().indexOf(mask.toLowerCase()))
+        return _.filter(data, (item) => ~ (item.label || '').toLowerCase().indexOf(mask.toLowerCase()))
       },
       filterWS(data, mask) {
         if (!mask)
@@ -569,6 +663,7 @@
       },
       ready() {
         this.cached_tickets = {};
+
         this.override_actions = {
           'registered': {
             'route-admin': true,
@@ -649,6 +744,9 @@
           }, {
             name: 'Пачка',
             value: 'session'
+          }, {
+            name: 'Дополнительные поля',
+            value: 'allInfoFields'
           }
         ];
 
@@ -678,6 +776,21 @@
         };
         this.ticketFieldsModel = [
           {
+            label: 'Состояние талона',
+            template: "waiting",
+            sortable: true,
+            sorted: true,
+            order: 'desc',
+            sorter: (ticket1, ticket2) => {
+              let wt1 = ticket1.getWaitingTime() || ticket1.state;
+              let wt2 = ticket2.getWaitingTime() || ticket2.state;
+              if (wt1 > wt2)
+                return 1;
+              if (wt1 < wt2)
+                return -1;
+              return 0;
+            }
+          }, {
             fields: {
               one: 'code',
               two: 'label'
@@ -709,6 +822,19 @@
                 : 'ЖО';
             },
             sortable: true
+          }, {
+            label: 'Время записи',
+            transform: (ticket) => {
+              if (!ticket.is_prebook)
+                return '';
+              let time = ticket.prebook_time;
+
+              return `${time.start} - ${time.end}`;
+            },
+            sortable: true
+          }, {
+            label: 'Дополнительные поля',
+            template: "ticket-fields"
           }
         ];
 
@@ -805,10 +931,31 @@
             ? v
             : acc;
         };
+
+        let val_part = (x) => _.padStart((x.match(/[0-9]+/g) || [0]).join('').toString(), 7, '0');
+        let text_part = (x) => (x.match(/[^0-9]+/g) || []).join('');
+
         this.workstationFieldsModel = [
           {
             field: 'label',
-            label: 'Название'
+            label: 'Название',
+            order: 'desc',
+            sortable: true,
+            sorter: (label1, label2) => {
+              let a = !!label1
+                ? text_part(label1) + val_part(label1)
+                : '';
+              let b = !!label2
+                ? text_part(label2) + val_part(label2)
+                : '';
+              if (a > b)
+                return 1;
+              if (a < b)
+                return -1;
+              return 0;
+
+            },
+            sorted: true
           }, {
             field: 'occupied_by',
             label: 'Оператор',
@@ -823,7 +970,8 @@
                 return '';
 
               return `${oper.first_name} ${oper.middle_name} ${oper.last_name}`;
-            }
+            },
+            sortable: true
           }, {
             field: 'ticket',
             label: 'Услуга',
@@ -854,7 +1002,8 @@
               if (item.inactive)
                 return "Выключено";
               return "";
-            }
+            },
+            sortable: true
           }, {
             label: 'Действия',
             template: 'turnoff'
@@ -978,4 +1127,10 @@
       }
     });
   </script>
+</dom-module>
+});
+</script>
+</dom-module>
+});
+</script>
 </dom-module>

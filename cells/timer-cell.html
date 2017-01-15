@@ -1,8 +1,7 @@
-<link rel="import" href="../polymer/polymer.html">
-
 <dom-module id="timer-cell">
   <template>
-    <iris-shared-entities namespace="timezone" key="name" value="{{timezone}}"></iris-shared-entities>
+    <iris-shared-entities id="tz" namespace="timezone"></iris-shared-entities>
+
     <iris-doomclock hidden$="[[!showClock]]" id="countdown" can-negative></iris-doomclock>
   </template>
   <script>
@@ -20,9 +19,12 @@
           ? ticket.state
           : 'no-state';
 
-        this.showClock = state == 'processing';
+        this.set('showClock', state == 'processing');
         if (this.showClock) {
-          let now = moment.tz(this.timezone).diff(moment.tz(this.timezone).startOf('day'), 'seconds');
+          let timezone = this.$.tz.get('name');
+          let offset = this.$.tz.get('offset');
+
+          let now = moment(Date.now() - offset).tz(timezone).diff(moment.tz(timezone).startOf('day'), 'seconds');
           let start = ticket.time_description[0] > now
             ? ticket.time_description[0]
             : now;

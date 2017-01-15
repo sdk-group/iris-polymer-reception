@@ -1,0 +1,34 @@
+<dom-module id="turnoff-cell">
+  <template>
+    <paper-button noink raised style="position: initial;" hidden$="[[isHidden(value.active,value.paused,in_progress)]]" on-tap="turnoffTap">Отключить</paper-button>
+    <paper-spinner hidden$="[[!in_progress]]" active></paper-spinner>
+  </template>
+  <script>
+    Polymer({
+      is: 'turnoff-cell',
+      properties: {
+        value: {
+          type: Object,
+          value: {}
+        },
+        in_progress: {
+          type: Boolean,
+          value: false
+        }
+      },
+      isHidden(a, p, i) {
+        return !(a || p) || i;
+      },
+      turnoffTap() {
+        this.set('in_progress', true);
+
+        this.fire('turnoff', {
+          workstation: this.value.id,
+          callback: () => {
+            this.set('in_progress', false);
+          }
+        })
+      }
+    });
+  </script>
+</dom-module>

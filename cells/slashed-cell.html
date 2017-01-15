@@ -1,5 +1,3 @@
-<link rel="import" href="../polymer/polymer.html">
-
 <dom-module id="slashed-cell">
   <template>
     [[celltext]]
@@ -21,7 +19,9 @@
       _valueChanged() {
         let first = this.value.first || 0;
         let second = this.value.second || 0;
-        this.celltext = first == second ? first : `${first} / ${second}`;
+        this.celltext = first == second
+          ? first
+          : `${first} / ${second}`;
       }
     });
   </script>
