@@ -25,27 +25,31 @@
       }
 
     </style>
-    <template is="dom-repeat" items="[[tagLabels]]">
-      <span class="tag">
-        <span>[[item]]</span>
-        <paper-icon-button icon="close" on-tap="removeTag"></paper-icon-button>
-      </span>
-    </template>
+
+    <paper-dropdown-menu label="">
+      <paper-listbox class="dropdown-content" selected="{{tags}}" attr-for-selected="value">
+        <paper-item value="">Всего</paper-item>
+        <template is="dom-repeat" items="[[fields]]" filter="ban">
+          <paper-item value="[[item.fields.first]]">[[item.label]]</paper-item>
+        </template>
+      </paper-listbox>
+    </paper-dropdown-menu>
+
   </template>
   <script>
     Polymer({
       is: 'reception-tags',
       properties: {
         tags: {
-          type: Array,
+          type: String,
           notify: true
+        },
+        fields: {
+          type: Array
         }
       },
-      removeTag(e) {
-        let index = e.model.index;
-        this.splice('tags', index, 1);
-        this.splice('tagLabels', index, 1);
-        console.log(this.tags)
+      ban(item) {
+        return !~ ['доступно', 'название'].indexOf(item.label.toLowerCase());
       }
     });
   </script>

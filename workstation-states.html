@@ -1,0 +1,52 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<dom-module id="workstation-states">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+
+    </style>
+    <paper-dropdown-menu label="">
+      <paper-listbox class="dropdown-content" selected="{{state}}" attr-for-selected="field">
+        <paper-item field=""></paper-item>
+        <template is="dom-repeat" items="[[stateList]]">
+          <paper-item field$="[[item.field]]">[[item.label]]</paper-item>
+        </template>
+      </paper-listbox>
+    </paper-dropdown-menu>
+  </template>
+  <script>
+    Polymer({
+      is: 'workstation-states',
+      properties: {
+        state: {
+          type: String,
+          notify: true,
+          value: ""
+        }
+      },
+      ready() {
+        this.stateList = [
+          {
+            field: false,
+            label: 'Всего'
+          }, {
+            field: 'available',
+            label: 'Доступно'
+          }, {
+            field: 'paused',
+            label: 'Перерыв'
+          }, {
+            field: 'active',
+            label: 'Включено'
+          }, {
+            field: 'inactive',
+            label: 'Выключено'
+          }
+        ]
+      }
+    });
+  </script>
+</dom-module>

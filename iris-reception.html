@@ -9,6 +9,7 @@
 <link rel="import" href="iris-ticket-history.html">
 <link rel="import" href="reception-week-day.html">
 <link rel="import" href="reception-tags.html">
+<link rel="import" href="workstation-states.html">
 
 <dom-module id="iris-reception">
   <template>
@@ -79,13 +80,14 @@
         position: inherit;
       }
       #ticket-search,
-      gbp #ticket-date {
+      #workstation-search {
         @apply(--layout-horizontal);
         @apply(--layout-end);
         min-height: 65px;
       }
 
-      #query {
+      #query,
+      #workstation-query {
         @apply(--layout-flex-auto);
         padding-right: 5px;
       }
@@ -164,6 +166,9 @@
       .workstation-item paper-menu-button {
         /*padding-right: 35px;*/
       }
+      reception-tags {
+        padding-right: 5px;
+      }
 
     </style>
 
@@ -171,7 +176,16 @@
 
     <iris-currentuser id="user" permissions="{{permissions}}" is-logged="{{logged}}"></iris-currentuser>
     <iris-connection on-connection-restore="connectionRestored"></iris-connection>
-    <iris-reception-api id="workstation" workstation-type="reception" ticket-design="{{prefix}}" on-ticket-changed="ticketChanged"></iris-reception-api>
+    <iris-reception-api
+      id="workstation"
+      on-bank-changed="_checkCurrentQuery"
+      service-stats="{{serviceStats}}"
+      service-info="{{serviceInfo}}"
+      workstation-info="{{workstationInfo}}"
+      mini="{{mini}}"
+      workstation-type="reception"
+      ticket-design="{{prefix}}"
+      on-ticket-changed="ticketChanged"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <iris-shared-entities namespace="operators" value="{{operators}}" key="ALL"></iris-shared-entities>
@@ -180,7 +194,7 @@
 
     <reception-dialog id="dialog" data="[[cellInfo]]" on-cell-tap="routingCellTap"></reception-dialog>
 
-    <paper-tabs selected="{{selected}}">
+    <paper-tabs hidden="[[mini]]" selected="{{selected}}">
       <paper-tab>Посетители</paper-tab>
       <paper-tab>Услуги</paper-tab>
       <paper-tab>Окна</paper-tab>
@@ -195,12 +209,30 @@
 
       <div>
         <paper-input label="Введите название услуги" value="{{serviceString}}"></paper-input>
-        <iris-table id="workstation-by-service-table" fixed-header fields-model="[[workstationByServiceFieldsModel]]" data="[[filter(serviceData,wsMask)]]"></iris-table>
+        <iris-table id="workstation-by-service-table" fixed-header fields-model="[[workstationByServiceFieldsModel]]" on-cell-tap="serviceCellTap" on-header-tap="serviceCellTap" data="[[filter(serviceData,wsMask)]]"></iris-table>
       </div>
 
       <div>
-        <paper-input label="Введите окно" value="{{workstationString}}"></paper-input>
-        <iris-table id="workstation-table" fixed-header fields-model="[[workstationFieldsModel]]" on-turnoff="workstationTurnoff" data="[[workstationsData]]" filter="{{computeWorkstationFilter(workstationString)}}" on-cell-tap="workstationCellTap"></iris-table>
+        <div id="workstation-search">
+          <paper-input id="workstation-query" label="Поиск" value="{{workstationString}}"></paper-input>
+          <paper-dropdown-menu label="Поле">
+            <paper-listbox class="dropdown-content" attr-for-selected="field-name" selected="{{workstationField}}">
+              <paper-item field-name="label">Рабочее место</paper-item>
+              <paper-item field-name="service">Услуга</paper-item>
+            </paper-listbox>
+          </paper-dropdown-menu>
+
+          <workstation-states state="{{workstationState}}"></workstation-states>
+        </div>
+
+        <iris-table
+          id="workstation-table"
+          fixed-header
+          fields-model="[[workstationFieldsModel]]"
+          on-turnoff="workstationTurnoff"
+          data="[[workstationsData]]"
+          filter="{{computeWorkstationFilter(workstationString,workstationState,workstationField)}}"
+          on-cell-tap="workstationCellTap"></iris-table>
       </div>
 
       <div id="ticket-manager-wrapper">
@@ -208,6 +240,8 @@
 
         <div id="ticket-search">
           <paper-input id="query" label="Поиск" value="{{queryString}}"></paper-input>
+          <reception-tags hidden="[[mini]]" tags="{{tag}}" fields="{{fieldsModel}}"></reception-tags>
+
           <paper-dropdown-menu label="Поле">
             <paper-listbox class="dropdown-content" attr-for-selected="field-name" selected="{{queryField}}">
               <template is="dom-repeat" items="[[fields]]">
@@ -218,10 +252,8 @@
 
           <paper-icon-button icon="autorenew" on-tap="_queryStringChanged"></paper-icon-button>
         </div>
-        <reception-tags tags="{{tag}}" tag-labels="{{tagLabels}}"></reception-tags>
 
         <iris-table id="ticket-table" fixed-header fields-model="[[ticketFieldsModel]]" data="[[tickets]]" on-cell-tap="searchTap"></iris-table>
-
       </div>
     </iron-pages>
 
@@ -284,6 +316,10 @@
           type: String,
           observer: '_searchStringChanged'
         },
+        workstationField: {
+          type: String,
+          value: 'label'
+        },
         queryField: {
           value: 'label',
           type: String,
@@ -325,25 +361,35 @@
         }
       },
       observers: [
-        '_permissionsChanged(permissions.can-manage)', '_pageChanged(selected)', 'isLogged(logged)', '_queryStringChanged(tag.splices)'
+        '_permissionsChanged(permissions.can-manage)',
+        '_pageChanged(selected)',
+        'isLogged(logged)',
+        '_queryStringChanged(tag.splices)',
+        '_viewmodeChanged(mini)',
+        '_serviceInfoChanged(serviceInfo)',
+        '_serviceInfoChanged(serviceStats)',
+        '_checkWorkstations(workstationInfo)'
       ],
+      _checkCurrentQuery() {
+
+        if (this.selectedDate && this.selectedDate == this.$["ticket-date"].now() && this.selected == 3) {
+          this._queryStringChanged();
+        }
+
+      },
+      _viewmodeChanged(mini) {
+        if (mini) {
+          this.set('selected', 3);
+        }
+
+      },
       computeTicketTemplate(prefix, booking_method) {
         return prefix
           ? `${prefix}-${booking_method}`
           : booking_method;
       },
-      isLogged(logged) {
-        if (!logged)
-          return;
 
-        let params = {
-          text: '-',
-          field: 'destination',
-          department: this.getDepartments()
-        };
-
-        this.$.workstation.queryTickets(params).then(tickets => this.set('cached_tickets', _.keyBy(tickets, 'destination')));
-      },
+      isLogged(logged) {},
       _computeWsPage(toggle) {
         return !toggle
           ? 0
@@ -359,15 +405,30 @@
           return;
         this.synchronizeData();
       },
-      computeWorkstationFilter(string) {
-        if (!string) {
+      computeWorkstationFilter(string, state, type) {
+        if (!string && !state) {
           return null;
         } else {
-          string = string.toLowerCase();
-          return function (item) {
-            var label = item.label.toLowerCase();
+          string = (string || '').toLowerCase();
+          return (item) => {
+            let matchStr = true;
+            let matchState = !!state
+              ? item[state]
+              : true;
 
-            return (label.indexOf(string) != -1);
+            if (string) {
+              var label = item.label.toLowerCase();
+
+              if (type == "label") {
+                matchStr = (label.indexOf(string) != -1);
+              } else {
+                let service = this._getServicesByLabel(string);
+                matchStr = !_.isEmpty(_.intersection(service, item.provides));
+              }
+
+            }
+
+            return matchStr && matchState;
           };
         }
       },
@@ -401,14 +462,14 @@
         this.updateWorkstationList(ticket);
       },
       updateWorkstationList(ticket) {
-        let dest = ticket.destination && !ticket.just_routed
-          ? ticket.destination
-          : _.get(_.find(this.cached_tickets, item => item && item.id == ticket.id), 'destination');
+        let dest = _.head(_.castArray(ticket.destination));
+
+        if (!dest)
+          return;
 
         let to_save = ~['called', 'processing'].indexOf(ticket.state)
           ? ticket
           : {};
-        this.set('cached_tickets.' + dest, to_save);
 
         let index = _.findIndex(this.workstationsData, ws => !!ws && ws.id == dest);
         let temp = _.clone(this.workstationsData[index]);
@@ -554,10 +615,13 @@
           let params = {
             text: text,
             field: this.queryField,
-            tag: _.isEmpty(this.tag)
+            tag: !(this.tag)
               ? undefined
-              : this.tag,
-            department: this.getDepartments()
+              : [this.tag],
+            department: this.getDepartments(),
+            state: this.mini
+              ? 'booked'
+              : undefined
           };
 
           if (this.selectedDate && this.selectedDate != this.$["ticket-date"].now())
@@ -614,6 +678,28 @@
           this.$["workstation-table"].scrollTop = 0;
         }, 500)
       },
+      serviceCellTap(e) {
+        let detail = e.detail;
+        if (detail.col < 1)
+          return false;
+
+        let field = detail.model.field;
+        let row = detail.row;
+        let service = _.isNumber(row)
+          ? _.get(this.$['workstation-by-service-table'], ['data', row, 'label'])
+          : undefined;
+
+        if (service || this.serviceString) {
+          this.set('workstationField', 'service');
+          this.set('workstationString', service || this.serviceString);
+        } else {
+          this.set('workstationString', '');
+        }
+
+        this.set('workstationState', field);
+        this.set('selected', 2);
+        return;
+      },
       cellTap(e) {
         let detail = e.detail;
         if (detail.col < 2)
@@ -626,16 +712,16 @@
           : undefined;
 
         if (service || this.searchString) {
-          console.log(service);
           this.set('queryField', 'service');
           this.set('queryString', service || this.searchString);
+        } else {
+          this.set('queryString', '');
         }
 
         let names = _.values(fields);
 
-        this.set('tag', [_.head(names)]);
+        this.set('tag', _.head(names));
         this.set('selectedDate', this.$["ticket-date"].now());
-        this.set('tagLabels', [_.find(this.fieldsModel, ['fields', fields]).label]);
         this.set('selected', 3);
         // let names = _.values(fields); this.$.workstation.getServiceDetails({param_names: names, service: service, department: this.getDepartments()}).then((response) => {   console.log('cell tap', response);   // this.set('cellInfo', response);
         // this.$.dialog.open();   this.set('tickets', response);   this.set('selected', 3); });
@@ -662,7 +748,6 @@
         return fields;
       },
       ready() {
-        this.cached_tickets = {};
 
         this.override_actions = {
           'registered': {
@@ -913,16 +998,6 @@
             reducer: slashed_sum,
             initial: {},
             label: 'Обслужено'
-          }, {
-            fields: {
-              first: 'total-live',
-              second: 'total-prebook'
-            },
-            template: 'slashed',
-            summary: 'slashed',
-            reducer: slashed_sum,
-            initial: {},
-            label: 'Всего'
           }
         ];
 
@@ -1056,81 +1131,79 @@
         if (!this.hasPermissions())
           return;
 
-        this.poller && clearTimeout(this.poller);
+        }
+      ,
+      _serviceInfoChanged() {
 
-        let poll = (refresh) => {
-          if (this.selected == 0 || refresh)
-            this.checkServices();
-          if (this.selected == 1 || this.selected == 2 || refresh)
-            this.checkWorkstations();
+        let stats = this.serviceStats || {};
+        let tickets = this.serviceInfo;
 
-          //@NOTE: rewrite this shitcode @NOTE: no timer-polls please
-          this.logged && (this.poller = setTimeout(poll, 20000));
-        };
-        poll(refresh);
-      },
-      checkServices() {
-        this.$.workstation.getServiceInfo({department: this.getDepartments()}).then((tickets) => {
-          let all_same = _.has(tickets, '*--enum-service');
+        _.forEach(stats, (param, service) => {
+          let key = service + '--enum-service';
 
-          let map = _.transform(this.services, (acc, service, key) => {
-            let row = tickets[key + '--enum-service'] || {};
-            row.label = this.services[key].label;
-            row.id = key;
-
-            if (all_same) {
-              _.assign(row, tickets['*--enum-service']);
-            }
-            acc.push(row);
-          }, []);
-
-          map = _.sortBy(map, 'label');
-          this.set('data', map)
+          _.set(tickets, [
+            key, 'live-slots'
+          ], param.live_slots_count);
+          _.set(tickets, [
+            key, 'prebook-slots'
+          ], param.prebook_slots_count);
         });
 
+        let all_same = _.has(tickets, '*--enum-service');
+
+        let map = _.transform(this.services, (acc, service, key) => {
+          let row = _.clone(tickets[key + '--enum-service']) || {};
+          row.label = this.services[key].label;
+          row.id = key;
+
+          if (all_same) {
+            _.assign(row, tickets['*--enum-service']);
+          }
+          acc.push(row);
+        }, []);
+        map = _.sortBy(map, 'label');
+        this.set('data', map)
       },
-      checkWorkstations() {
-        this.$.workstation.getWorkstationInfo({department: this.getDepartments()}).then((data) => {
+      _checkWorkstations(data) {
 
-          let fields = _.chain(data).sortBy('label').map((item) => {
+        let fields = _.chain(data).sortBy('label').map((item) => {
 
-            item.available = item.state == 'active';
-            item.paused = item.state == 'paused';
-            item.active = item.state == 'active' || item.state == 'paused';
-            item.inactive = item.state == 'inactive';
-            // item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
-            (!!this.cached_tickets[item.id]) && this.updateWorkstationItem(item, this.cached_tickets[item.id]);
+          item.available = item.state == 'active';
+          item.paused = item.state == 'paused';
+          item.active = item.state == 'active' || item.state == 'paused';
+          item.inactive = item.state == 'inactive';
+          // item.service = item.current_ticket ? this.services[item.current_ticket.service].label : '';
 
-            return item;
-          }).value();
-
-          this.set('workstationsData', fields);
-
-          let services = _.map(this.services, (service, id) => {
-            let ws = _.filter(fields, field => field.provides && ~ field.provides.indexOf(id));
-            let result = {
-              available: 0,
-              paused: 0,
-              active: 0,
-              inactive: 0
-            };
-
-            result = _.mapValues(result, (item, name) => _.filter(ws, [name, true]).length);
-            result.label = service.label;
-            result.total = result.active + result.inactive;
-
-            return result;
+          let list = this.$.workstation.self().bank.list;
+          let ticket = _.find(list, lt => {
+            console.log(lt.destination, item.id, ~ _.castArray(lt.destination).indexOf(item.id));
+            return (~ ['called', 'processing'].indexOf(lt.state)) && (~ _.castArray(lt.destination).indexOf(item.id));
           });
+          (!!ticket) && this.updateWorkstationItem(item, ticket);
 
-          this.set('serviceData', services);
+          return item;
+        }).value();
+
+        this.set('workstationsData', fields);
+
+        let services = _.map(this.services, (service, id) => {
+          let ws = _.filter(fields, field => field.provides && ~ field.provides.indexOf(id));
+          let result = {
+            available: 0,
+            paused: 0,
+            active: 0,
+            inactive: 0
+          };
+
+          result = _.mapValues(result, (item, name) => _.filter(ws, [name, true]).length);
+          result.label = service.label;
+          result.total = result.active + result.inactive;
+
+          return result;
         });
+
+        this.set('serviceData', services);
       }
     });
   </script>
-</dom-module>
-});
-</script>
-</dom-module>
-});
-</script>
 </dom-module>
