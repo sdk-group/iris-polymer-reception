@@ -93,11 +93,11 @@
           this.fire(`history-action`, item);
         },
         computeLinks(item) {
-          if (!!item.context && item.context.inherits) {
+          if (!!item.context && item.context.parent) {
             return [
               {
                 label: "Исходный талон",
-                value: item.context.inherits,
+                value: item.context.parent,
                 action: "show"
               }
             ];

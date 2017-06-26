@@ -178,14 +178,14 @@
     <iris-connection on-connection-restore="connectionRestored"></iris-connection>
     <iris-reception-api
       id="workstation"
+      on-ticket-changed="anyTicketChanged"
       on-bank-changed="_checkCurrentQuery"
       service-stats="{{serviceStats}}"
       service-info="{{serviceInfo}}"
       workstation-info="{{workstationInfo}}"
       mini="{{mini}}"
       workstation-type="reception"
-      ticket-design="{{prefix}}"
-      on-ticket-changed="ticketChanged"></iris-reception-api>
+      ticket-design="{{prefix}}"></iris-reception-api>
 
     <iris-shared-entities namespace="services" value="{{services}}" key="ALL"></iris-shared-entities>
     <iris-shared-entities namespace="operators" value="{{operators}}" key="ALL"></iris-shared-entities>
@@ -263,7 +263,7 @@
       </div>
 
       <div id="ticket-dialog-wrapper">
-        <iris-ticketview id="viewer" hidden$="[[hasTicket(selectedTicket)]]" ticket="{{selectedTicket}}" override="[[override_actions]]" view="detail">
+        <iris-ticketview id="viewer" hidden$="[[hasTicket(selectedTicket)]]" ticket="{{selectedTicket}}" override="[[getOverrides(selectedDate)]]" view="detail">
           <div class="ticket-action ">
             <paper-button ticket-action="route-admin" class="btn-primary" raised elevation="0" tabindex="-1" onkeydown="return false" onkeypress="return false">
               Передать
@@ -370,12 +370,25 @@
         '_serviceInfoChanged(serviceStats)',
         '_checkWorkstations(workstationInfo)'
       ],
-      _checkCurrentQuery() {
+      anyTicketChanged(e) {
+        const ticket = e.detail.ticket;
+        if (this.selectedDate == ticket.dedicated_date && this.selectedDate != this.$["ticket-date"].now()) {
+          this._queryStringChanged();
+        }
 
+        (!ticket.isToday()) && this.ticketChanged({detail: ticket});
+      },
+      getOverrides(date) {
+        return date == this.$["ticket-date"].now()
+          ? this.override_actions_now
+          : this.override_actions_nextday;
+      },
+      _checkCurrentQuery(e) {
         if (this.selectedDate && this.selectedDate == this.$["ticket-date"].now() && this.selected == 3) {
           this._queryStringChanged();
         }
 
+        this.ticketChanged(e);
       },
       _viewmodeChanged(mini) {
         if (mini) {
@@ -406,13 +419,13 @@
         this.synchronizeData();
       },
       computeWorkstationFilter(string, state, type) {
-        if (!string && !state) {
+        if (!string && state == "none") {
           return null;
         } else {
           string = (string || '').toLowerCase();
           return (item) => {
             let matchStr = true;
-            let matchState = !!state
+            let matchState = state != "none"
               ? item[state]
               : true;
 
@@ -451,10 +464,10 @@
         }). finally(e.detail.callback);
       },
       ticketChanged(e) {
-        let data = e.detail;
-        let ticket = data.ticket;
-
-        if (!_.isEmpty(this.selectedTicket) && ticket.getId() == this.selectedTicket.getId())
+        let ticket = e.detail;
+        const recieved_id = _.get(ticket, 'id');
+        const current_id = _.get(this.selectedTicket, 'id') || _.get(this.selectedTicket, '@id');
+        if (recieved_id == current_id)
           this.set('selectedTicket', ticket);
 
         this.updateList('tickets', ticket);
@@ -462,14 +475,15 @@
         this.updateWorkstationList(ticket);
       },
       updateWorkstationList(ticket) {
-        let dest = _.head(_.castArray(ticket.destination));
+        const dest_specified = ticket.state != "registered" && _.head(_.castArray(ticket.destination));
+        const dest = dest_specified || (_.find(this.workstationsData, ws => _.get(ws, 'ticket.id') == ticket.id) || {}).id;
 
-        if (!dest)
+        if (!dest) {
           return;
-
+        }
         let to_save = ~['called', 'processing'].indexOf(ticket.state)
           ? ticket
-          : {};
+          : false;
 
         let index = _.findIndex(this.workstationsData, ws => !!ws && ws.id == dest);
         let temp = _.clone(this.workstationsData[index]);
@@ -487,7 +501,9 @@
       },
       updateList(name, ticket) {
         _.forEach(this[name], (t, index) => {
-          if (t.getId() == ticket.getId()) {
+          const recieved_id = _.get(ticket, 'id');
+          const current_id = _.get(t, 'id') || _.get(t, '@id');
+          if (recieved_id == current_id) {
             this.splice(name, index, 1, ticket);
             return false;
           }
@@ -551,27 +567,24 @@
           let tickets = _.castArray(detail.ticket);
           let contexts = _.castArray(detail.context);
 
-          _.forEach(tickets, (ticket, index) => {
+          this.$.printer.style.display = "block";
+
+          Promise.mapSeries(tickets, (ticket, index) => {
             let context = contexts[index];
             let method = ticket.is_prebook
               ? 'prebook'
               : 'live';
-
-            console.log(ticket, ticket.is_activated);
 
             method = ticket.is_activated
               ? 'register'
               : method;
 
             this.set('method', method);
-            this.$.printer.init(ticket, context);
-            this.$.printer.print();
-          });
+            return this.$.printer.init(ticket, context).then(() => this.$.printer.print());
+          }).then(() => this.$.printer.style.display = "none");
         }
       },
-      handleFail(d) {
-        // console.log('failed', d);
-      },
+      handleFail(d) {},
       _getServicesByLabel(string) {
         if (!string) {
           return false;
@@ -645,7 +658,6 @@
         this._selectTicket(row);
       },
       _selectTicket(row) {
-        // console.log(this.tickets[row]);
         this.set('selectedIndex', row);
         this.set('selectedTicket', false);
         this.set('selectedTicket', this.tickets[row]);
@@ -696,7 +708,10 @@
           this.set('workstationString', '');
         }
 
-        this.set('workstationState', field);
+        this.set('workstationState', field == "total"
+          ? "none"
+          : field);
+        console.log('Table click', field)
         this.set('selected', 2);
         return;
       },
@@ -749,7 +764,7 @@
       },
       ready() {
 
-        this.override_actions = {
+        this.override_actions_now = {
           'registered': {
             'route-admin': true,
             'restore': 'disabled',
@@ -815,6 +830,16 @@
             'close': 'disabled'
           }
         };
+        this.override_actions_nextday = _.defaults({
+          'registered': {
+            'route-admin': 'disabled',
+            'restore': 'disabled',
+            'priority-up': 'disabled',
+            'priority-down': 'disabled',
+            'remove': true,
+            'close': 'disabled'
+          }
+        }, this.override_actions_now);
 
         this.fields = [
           {
@@ -1165,7 +1190,6 @@
         this.set('data', map)
       },
       _checkWorkstations(data) {
-
         let fields = _.chain(data).sortBy('label').map((item) => {
 
           item.available = item.state == 'active';
@@ -1176,10 +1200,9 @@
 
           let list = this.$.workstation.self().bank.list;
           let ticket = _.find(list, lt => {
-            console.log(lt.destination, item.id, ~ _.castArray(lt.destination).indexOf(item.id));
             return (~ ['called', 'processing'].indexOf(lt.state)) && (~ _.castArray(lt.destination).indexOf(item.id));
           });
-          (!!ticket) && this.updateWorkstationItem(item, ticket);
+          this.updateWorkstationItem(item, ticket || {});
 
           return item;
         }).value();

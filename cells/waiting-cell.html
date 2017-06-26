@@ -1,7 +1,6 @@
 <dom-module id="waiting-cell">
   <template>
 
-    <iris-reception-api id="reception" on-bank-changed="bankChange"></iris-reception-api>
     <template is="dom-if" if="[[!icon]]">
       [[time]]
     </template>
@@ -23,14 +22,7 @@
           value: false
         }
       },
-      bankChange(e) {
-        let ticket = e.detail;
 
-        if (ticket.pack_member && ticket.session == this.value.session) {
-          (!!this.int_id) && clearInterval(this.int_id);
-          this.set('icon', 'social:person');
-        }
-      },
       _ticketChanged(ticket) {
         (!!this.int_id) && clearInterval(this.int_id);
 
@@ -38,38 +30,36 @@
         this.set('icon', false);
         let today = ticket.isToday();
 
-        if (start && today && this.isProcessing(ticket)) {
-          this.set('icon', 'social:person');
-          return;
-        }
-
-        if (!start || !ticket.isToday()) {
+        if (start === "" || !ticket.isToday()) {
           let icon = '';
           _.forEachRight(ticket.history, item => {
             icon = this.getIcon(item.event_name);
             return !icon;
           });
-          this.set('icon', icon);
+          this.set('icon', ticket.state == "processing"
+            ? "social:person"
+            : icon);
           return;
         }
 
         this.set('time', start);
 
+        (!!this.int_id) && clearInterval(this.int_id);
         this.int_id = setInterval(() => {
           this.set('time', ticket.getWaitingTime());
         }, 600);
       },
-      isProcessing(ticket) {
-        let session = ticket.session;
-        return !!_.find(this.$.reception.self().bank.list, lt => lt.session == session && lt.state == "processing");
 
-      },
       getIcon(key) {
         return IrisBehaviors.TicketHistoryBehavior._getIcon(key);
       },
       detached() {
         (!!this.int_id) && clearInterval(this.int_id);
-      }
-    });
+      },
+      attached() {
+        if (this.value)
+          this._ticketChanged(this.value);
+        }
+      });
   </script>
 </dom-module>

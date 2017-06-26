@@ -10,9 +10,8 @@
     </style>
     <paper-dropdown-menu label="">
       <paper-listbox class="dropdown-content" selected="{{state}}" attr-for-selected="field">
-        <paper-item field=""></paper-item>
         <template is="dom-repeat" items="[[stateList]]">
-          <paper-item field$="[[item.field]]">[[item.label]]</paper-item>
+          <paper-item field="[[item.field]]">[[item.label]]</paper-item>
         </template>
       </paper-listbox>
     </paper-dropdown-menu>
@@ -23,14 +22,18 @@
       properties: {
         state: {
           type: String,
-          notify: true,
-          value: ""
+          notify: true
+        },
+        c: {
+          type: Number
         }
       },
+
       ready() {
+
         this.stateList = [
           {
-            field: false,
+            field: "none",
             label: 'Всего'
           }, {
             field: 'available',
@@ -45,7 +48,8 @@
             field: 'inactive',
             label: 'Выключено'
           }
-        ]
+        ];
+        this.stateIndex = "none";
       }
     });
   </script>
